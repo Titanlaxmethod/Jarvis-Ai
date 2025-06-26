@@ -50,7 +50,7 @@ interface SpeechRecognitionConstructor {
   new (): SpeechRecognition;
 }
 
-interface SpeechRecognitionResult {
+interface UseSpeechRecognitionResult {
   transcript: string;
   isListening: boolean;
   startListening: () => void;
@@ -58,7 +58,7 @@ interface SpeechRecognitionResult {
   resetTranscript: () => void;
 }
 
-export const useSpeechRecognition = (): SpeechRecognitionResult => {
+export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
