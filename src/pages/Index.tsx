@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Power, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,10 +36,34 @@ const Index = () => {
 
   useEffect(() => {
     if (transcript && transcript.trim() !== '') {
-      handleUserMessage(transcript);
+      const lowerTranscript = transcript.toLowerCase().trim();
+      
+      // Check if it's just the wake word "Jarvis"
+      if (lowerTranscript === 'jarvis' || lowerTranscript === 'hey jarvis') {
+        handleWakeWord();
+      } else {
+        handleUserMessage(transcript);
+      }
       resetTranscript();
     }
   }, [transcript]);
+
+  const handleWakeWord = async () => {
+    const wakeResponses = [
+      "Yes sir, how may I assist you?",
+      "At your service, sir.",
+      "Standing by, sir. What can I do for you?",
+      "Ready to assist, sir.",
+      "Yes sir, I'm here."
+    ];
+    
+    const response = wakeResponses[Math.floor(Math.random() * wakeResponses.length)];
+    const aiMessage = { text: response, isUser: false, timestamp: new Date() };
+    setMessages(prev => [...prev, aiMessage]);
+    
+    // Speak the wake response
+    await speak(response);
+  };
 
   const handleUserMessage = async (message: string) => {
     const userMessage = { text: message, isUser: true, timestamp: new Date() };
