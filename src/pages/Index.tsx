@@ -14,6 +14,10 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Array<{text: string, isUser: boolean, timestamp: Date}>>([]);
+  const [currentCommand, setCurrentCommand] = useState('');
+  const [understandLevel, setUnderstandLevel] = useState('');
+  const [currentResponse, setCurrentResponse] = useState('');
+  const [systemStatus, setSystemStatus] = useState('START');
   const { toast } = useToast();
   
   const { 
@@ -28,7 +32,14 @@ const Index = () => {
 
   useEffect(() => {
     setIsListening(speechListening);
-  }, [speechListening]);
+    if (speechListening) {
+      setSystemStatus('LISTENING');
+    } else if (isSpeaking) {
+      setSystemStatus('RESPONDING');
+    } else {
+      setSystemStatus('READY');
+    }
+  }, [speechListening, isSpeaking]);
 
   useEffect(() => {
     setIsSpeaking(textToSpeechActive);
@@ -37,11 +48,14 @@ const Index = () => {
   useEffect(() => {
     if (transcript && transcript.trim() !== '') {
       const lowerTranscript = transcript.toLowerCase().trim();
+      setCurrentCommand(transcript);
       
       // Check if it's just the wake word "Jarvis"
       if (lowerTranscript === 'jarvis' || lowerTranscript === 'hey jarvis') {
+        setUnderstandLevel('Wake word detected');
         handleWakeWord();
       } else {
+        setUnderstandLevel('Processing command...');
         handleUserMessage(transcript);
       }
       resetTranscript();
@@ -58,6 +72,7 @@ const Index = () => {
     ];
     
     const response = wakeResponses[Math.floor(Math.random() * wakeResponses.length)];
+    setCurrentResponse(response);
     const aiMessage = { text: response, isUser: false, timestamp: new Date() };
     setMessages(prev => [...prev, aiMessage]);
     
@@ -68,9 +83,12 @@ const Index = () => {
   const handleUserMessage = async (message: string) => {
     const userMessage = { text: message, isUser: true, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
+    setSystemStatus('PROCESSING');
     
     try {
       const response = await getAIResponse(message);
+      setUnderstandLevel('Command understood');
+      setCurrentResponse(response);
       const aiMessage = { text: response, isUser: false, timestamp: new Date() };
       setMessages(prev => [...prev, aiMessage]);
       
@@ -78,6 +96,8 @@ const Index = () => {
       await speak(response);
     } catch (error) {
       console.error('Error getting AI response:', error);
+      setUnderstandLevel('Error processing');
+      setCurrentResponse('System error occurred');
       toast({
         title: "Error",
         description: "Failed to get AI response. Please try again.",
@@ -136,8 +156,10 @@ const Index = () => {
   const toggleListening = () => {
     if (isListening) {
       stopListening();
+      setSystemStatus('READY');
     } else {
       startListening();
+      setSystemStatus('LISTENING');
     }
   };
 
@@ -149,6 +171,7 @@ const Index = () => {
 
   const activateJarvis = () => {
     setIsActive(true);
+    setSystemStatus('ONLINE');
     speak("Good day, sir. Jarvis is now online and ready to assist you.");
     toast({
       title: "JARVIS Activated",
@@ -160,9 +183,13 @@ const Index = () => {
     setIsActive(false);
     stopListening();
     stopSpeaking();
+    setSystemStatus('OFFLINE');
     speak("Powering down. Until next time, sir.");
     setTimeout(() => {
       setMessages([]);
+      setCurrentCommand('');
+      setUnderstandLevel('');
+      setCurrentResponse('');
     }, 2000);
   };
 
@@ -195,20 +222,31 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 relative overflow-hidden">
+      {/* Background pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <div className="grid grid-cols-20 gap-1">
+            {[...Array(400)].map((_, i) => (
+              <div key={i} className="w-2 h-2 bg-cyan-400 rounded-sm opacity-30"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="relative z-10 flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <h1 className="text-2xl md:text-3xl font-bold text-blue-300">JARVIS</h1>
-          <span className="text-sm text-blue-400 opacity-80">Online</span>
+          <h1 className="text-2xl md:text-3xl font-bold text-cyan-300">JARVIS</h1>
+          <span className="text-sm text-cyan-400 opacity-80">Online</span>
         </div>
         
         <div className="flex space-x-2">
           <Button
             variant="ghost"
             size="icon"
-            className="text-blue-300 hover:text-blue-100 hover:bg-blue-900/50"
+            className="text-cyan-300 hover:text-cyan-100 hover:bg-cyan-900/50"
           >
             <Settings className="h-5 w-5" />
           </Button>
@@ -223,85 +261,102 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Main Interface */}
-      <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Voice Interface */}
-        <Card className="bg-slate-800/50 backdrop-blur-sm border-blue-800/50 p-6">
-          <div className="text-center space-y-6">
-            <h2 className="text-xl font-semibold text-blue-300 mb-4">Voice Interface</h2>
-            
-            {/* Voice Visualizer */}
-            <div className="flex justify-center">
-              <VoiceVisualizer isActive={isListening || isSpeaking} />
-            </div>
-            
-            {/* Status */}
-            <div className="text-center">
-              {isListening && (
-                <p className="text-green-400 animate-pulse">Listening...</p>
-              )}
-              {isSpeaking && (
-                <p className="text-blue-400 animate-pulse">Speaking...</p>
-              )}
-              {!isListening && !isSpeaking && (
-                <p className="text-slate-400">Ready</p>
-              )}
-            </div>
-            
-            {/* Controls */}
-            <div className="flex justify-center space-x-4">
-              <Button
-                onClick={toggleListening}
-                className={`rounded-full p-4 transition-all duration-300 ${
-                  isListening 
-                    ? 'bg-red-600 hover:bg-red-500 shadow-red-500/50' 
-                    : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/50'
-                } shadow-lg`}
-              >
-                {isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-              </Button>
-              
-              <Button
-                onClick={toggleSpeaking}
-                disabled={!isSpeaking}
-                className="rounded-full p-4 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 shadow-lg transition-all duration-300"
-              >
-                {isSpeaking ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-              </Button>
-            </div>
+      {/* System Information */}
+      <div className="relative z-10 max-w-6xl mx-auto mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-cyan-300">
+          <div>
+            <div className="text-sm opacity-70">command :</div>
+            <div className="text-lg">{currentCommand || 'Awaiting input...'}</div>
           </div>
-        </Card>
+          <div>
+            <div className="text-sm opacity-70">understand level :</div>
+            <div className="text-lg">{understandLevel || 'Ready'}</div>
+          </div>
+          <div>
+            <div className="text-sm opacity-70">response :</div>
+            <div className="text-lg">{currentResponse || 'Standby'}</div>
+          </div>
+        </div>
+      </div>
 
-        {/* Chat Interface */}
-        <Card className="bg-slate-800/50 backdrop-blur-sm border-blue-800/50 p-6">
+      {/* Central Interface */}
+      <div className="relative z-10 flex flex-col items-center justify-center mt-16">
+        {/* Main circular interface */}
+        <div className="relative">
+          {/* Outer rings */}
+          <div className="absolute inset-0 w-80 h-80 border-4 border-cyan-400 rounded-full opacity-30 animate-spin" style={{animationDuration: '20s'}}></div>
+          <div className="absolute inset-4 w-72 h-72 border-2 border-cyan-300 rounded-full opacity-40 animate-spin" style={{animationDuration: '15s', animationDirection: 'reverse'}}></div>
+          
+          {/* Inner circle segments */}
+          <div className="absolute inset-8 w-64 h-64 rounded-full border-4 border-transparent">
+            {[...Array(24)].map((_, i) => (
+              <div
+                key={i}
+                className={`absolute w-1 h-6 bg-cyan-400 rounded-full transform origin-bottom ${
+                  isListening ? 'opacity-100' : 'opacity-30'
+                }`}
+                style={{
+                  left: '50%',
+                  bottom: '50%',
+                  transform: `translateX(-50%) rotate(${i * 15}deg) translateY(-120px)`,
+                  animationDelay: `${i * 0.1}s`
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Center button */}
+          <div className="relative w-80 h-80 flex items-center justify-center">
+            <Button
+              onClick={toggleListening}
+              className={`w-32 h-32 rounded-full text-xl font-bold transition-all duration-300 ${
+                isListening 
+                  ? 'bg-green-600 hover:bg-green-500 shadow-green-500/50 animate-pulse' 
+                  : systemStatus === 'PROCESSING'
+                  ? 'bg-yellow-600 hover:bg-yellow-500 shadow-yellow-500/50'
+                  : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-500/50'
+              } shadow-2xl border-4 border-cyan-300`}
+            >
+              {systemStatus === 'PROCESSING' ? 'LOADING' : 
+               isListening ? 'LISTENING' : 
+               systemStatus}
+            </Button>
+          </div>
+          
+          {/* Center dot indicator */}
+          <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full ${
+            isListening ? 'bg-green-400' : 'bg-red-400'
+          } z-10`}></div>
+        </div>
+        
+        {/* Voice prompt */}
+        {!isListening && systemStatus === 'READY' && (
+          <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3">
+            <span className="text-cyan-200 text-lg">Say Jarvis</span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom controls */}
+      <div className="relative z-10 fixed bottom-8 left-1/2 transform -translate-x-1/2">
+        <div className="flex space-x-4">
+          <Button
+            onClick={toggleSpeaking}
+            disabled={!isSpeaking}
+            className="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 border-2 border-cyan-400"
+          >
+            {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Chat Interface - Hidden by default, can be toggled */}
+      <div className="absolute top-4 right-4 w-80 max-h-96 z-20">
+        <Card className="bg-slate-800/80 backdrop-blur-sm border-cyan-800/50 p-4">
           <ChatInterface 
             messages={messages} 
             onSendMessage={handleUserMessage}
           />
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="max-w-4xl mx-auto mt-6">
-        <Card className="bg-slate-800/50 backdrop-blur-sm border-blue-800/50 p-4">
-          <h3 className="text-lg font-semibold text-blue-300 mb-3">Quick Commands</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {[
-              "What's the weather?",
-              "Tell me a joke",
-              "What time is it?",
-              "How are you today?"
-            ].map((command, index) => (
-              <Button
-                key={index}
-                onClick={() => handleUserMessage(command)}
-                variant="outline"
-                className="text-sm border-blue-700 text-blue-300 hover:bg-blue-900/50"
-              >
-                {command}
-              </Button>
-            ))}
-          </div>
         </Card>
       </div>
     </div>
