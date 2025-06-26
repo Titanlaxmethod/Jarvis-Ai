@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Power, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,22 +62,50 @@ const Index = () => {
   };
 
   const getAIResponse = async (message: string): Promise<string> => {
-    // Using a simple AI response for now - you can integrate with any AI API
-    const responses = [
-      "I'm here to assist you, sir. How may I help you today?",
-      "Processing your request. One moment please.",
-      "Certainly, sir. Let me handle that for you.",
-      "I understand. Allow me to process that information.",
-      "Of course, sir. I'm analyzing the data now.",
-      "Your request has been noted. Initiating protocols.",
-      "I'm at your service. What would you like me to do?",
-      "Acknowledged. Running diagnostics on your request."
-    ];
+    const API_KEY = "AIzaSyDz-Kn2L-hBa7Bi6mfIQXVI8Rjqgaq4igI";
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return responses[Math.floor(Math.random() * responses.length)];
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are JARVIS, Tony Stark's AI assistant. Respond in character as JARVIS - be helpful, sophisticated, and occasionally witty. Keep responses concise and natural for voice interaction. User message: ${message}`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 200,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        return data.candidates[0].content.parts[0].text;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Gemini API Error:', error);
+      // Fallback to JARVIS-style responses
+      const fallbackResponses = [
+        "My apologies, sir. I'm experiencing some technical difficulties. Please try again.",
+        "I'm having trouble accessing my neural networks at the moment. Give me a moment.",
+        "Sir, there seems to be an issue with my cognitive processors. Please rephrase your request.",
+      ];
+      return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+    }
   };
 
   const toggleListening = () => {
@@ -238,7 +265,7 @@ const Index = () => {
               "What's the weather?",
               "Tell me a joke",
               "What time is it?",
-              "System status"
+              "How are you today?"
             ].map((command, index) => (
               <Button
                 key={index}
