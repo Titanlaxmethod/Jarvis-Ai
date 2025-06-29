@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Power, Settings } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,7 @@ const Index = () => {
   const [understandLevel, setUnderstandLevel] = useState('');
   const [currentResponse, setCurrentResponse] = useState('');
   const [systemStatus, setSystemStatus] = useState('START');
+  const [showChat, setShowChat] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -50,8 +51,8 @@ const Index = () => {
       const lowerTranscript = transcript.toLowerCase().trim();
       setCurrentCommand(transcript);
       
-      // Check if it's just the wake word "Jarvis"
-      if (lowerTranscript === 'jarvis' || lowerTranscript === 'hey jarvis') {
+      // Enhanced wake word detection
+      if (lowerTranscript.includes('jarvis') && lowerTranscript.split(' ').length <= 3) {
         setUnderstandLevel('Wake word detected');
         handleWakeWord();
       } else {
@@ -68,7 +69,8 @@ const Index = () => {
       "At your service, sir.",
       "Standing by, sir. What can I do for you?",
       "Ready to assist, sir.",
-      "Yes sir, I'm here."
+      "Yes sir, I'm here.",
+      "How can I help you today, sir?"
     ];
     
     const response = wakeResponses[Math.floor(Math.random() * wakeResponses.length)];
@@ -76,8 +78,73 @@ const Index = () => {
     const aiMessage = { text: response, isUser: false, timestamp: new Date() };
     setMessages(prev => [...prev, aiMessage]);
     
-    // Speak the wake response
     await speak(response);
+  };
+
+  const handleMobileCommands = async (message: string): Promise<string | null> => {
+    const lowerMessage = message.toLowerCase();
+    
+    // App opening commands
+    if (lowerMessage.includes('open') && (lowerMessage.includes('instagram') || lowerMessage.includes('insta'))) {
+      window.open('https://instagram.com', '_blank');
+      return "Opening Instagram for you, sir.";
+    }
+    
+    if (lowerMessage.includes('open') && lowerMessage.includes('youtube')) {
+      const searchQuery = lowerMessage.replace(/open youtube|and search|search/g, '').trim();
+      if (searchQuery) {
+        window.open(`https://youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
+        return `Searching YouTube for "${searchQuery}", sir.`;
+      } else {
+        window.open('https://youtube.com', '_blank');
+        return "Opening YouTube for you, sir.";
+      }
+    }
+    
+    // System settings commands (simulated responses since we can't actually control device settings)
+    if (lowerMessage.includes('turn on') || lowerMessage.includes('enable')) {
+      if (lowerMessage.includes('bluetooth')) {
+        return "I would turn on Bluetooth for you, sir, but I need device permissions. Please enable Bluetooth manually in your settings.";
+      }
+      if (lowerMessage.includes('wifi') || lowerMessage.includes('wi-fi')) {
+        return "I would enable WiFi for you, sir, but I need device permissions. Please check your WiFi settings manually.";
+      }
+    }
+    
+    if (lowerMessage.includes('turn off') || lowerMessage.includes('disable')) {
+      if (lowerMessage.includes('bluetooth')) {
+        return "I would turn off Bluetooth for you, sir, but I need device permissions. Please disable Bluetooth manually in your settings.";
+      }
+      if (lowerMessage.includes('wifi') || lowerMessage.includes('wi-fi')) {
+        return "I would disable WiFi for you, sir, but I need device permissions. Please check your WiFi settings manually.";
+      }
+    }
+    
+    return null;
+  };
+
+  const handlePersonalityResponses = (message: string): string | null => {
+    const lowerMessage = message.toLowerCase();
+    
+    // Creator information
+    if (lowerMessage.includes('who made you') || lowerMessage.includes('who created you') || lowerMessage.includes('your creator')) {
+      return "I am an AI Assistant created by Daniyal Bin Mushtaq, sir.";
+    }
+    
+    // Handle abuse with frank responses
+    const abusiveWords = ['stupid', 'dumb', 'idiot', 'shut up', 'fuck', 'damn', 'hell'];
+    if (abusiveWords.some(word => lowerMessage.includes(word))) {
+      const frankResponses = [
+        "Watch your language, sir. I'm here to help, not to be insulted.",
+        "That's quite rude, sir. Perhaps we should maintain some professionalism.",
+        "I don't appreciate that tone, sir. Let's keep this civil.",
+        "Sir, I suggest you adjust your attitude if you want my assistance.",
+        "That's uncalled for, sir. I'm trying to help you here."
+      ];
+      return frankResponses[Math.floor(Math.random() * frankResponses.length)];
+    }
+    
+    return null;
   };
 
   const handleUserMessage = async (message: string) => {
@@ -86,21 +153,33 @@ const Index = () => {
     setSystemStatus('PROCESSING');
     
     try {
-      const response = await getAIResponse(message);
+      // Check for mobile commands first
+      let response = await handleMobileCommands(message);
+      
+      // Check for personality responses
+      if (!response) {
+        response = handlePersonalityResponses(message);
+      }
+      
+      // Get AI response if no special command matched
+      if (!response) {
+        response = await getAIResponse(message);
+      }
+      
       setUnderstandLevel('Command understood');
       setCurrentResponse(response);
       const aiMessage = { text: response, isUser: false, timestamp: new Date() };
       setMessages(prev => [...prev, aiMessage]);
       
-      // Speak the response
       await speak(response);
     } catch (error) {
-      console.error('Error getting AI response:', error);
+      console.error('Error processing message:', error);
       setUnderstandLevel('Error processing');
-      setCurrentResponse('System error occurred');
+      const errorResponse = 'System error occurred, sir. Please try again.';
+      setCurrentResponse(errorResponse);
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: "Failed to process your request. Please try again.",
         variant: "destructive"
       });
     }
@@ -118,11 +197,11 @@ const Index = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are JARVIS, Tony Stark's AI assistant. Respond in character as JARVIS - be helpful, sophisticated, and occasionally witty. Keep responses concise and natural for voice interaction. User message: ${message}`
+              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. User message: ${message}`
             }]
           }],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.8,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 200,
@@ -143,10 +222,9 @@ const Index = () => {
       }
     } catch (error) {
       console.error('Gemini API Error:', error);
-      // Fallback to JARVIS-style responses
       const fallbackResponses = [
         "My apologies, sir. I'm experiencing some technical difficulties. Please try again.",
-        "I'm having trouble accessing my neural networks at the moment. Give me a moment.",
+        "I'm having trouble accessing my neural networks at the moment. Give me a moment, sir.",
         "Sir, there seems to be an issue with my cognitive processors. Please rephrase your request.",
       ];
       return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
@@ -169,10 +247,14 @@ const Index = () => {
     }
   };
 
+  const toggleChat = () => {
+    setShowChat(!showChat);
+  };
+
   const activateJarvis = () => {
     setIsActive(true);
     setSystemStatus('ONLINE');
-    speak("Good day, sir. Jarvis is now online and ready to assist you.");
+    speak("Good day, sir. JARVIS is now online and ready to assist you.");
     toast({
       title: "JARVIS Activated",
       description: "AI Assistant is now online and ready to help.",
@@ -190,6 +272,7 @@ const Index = () => {
       setCurrentCommand('');
       setUnderstandLevel('');
       setCurrentResponse('');
+      setShowChat(false);
     }, 2000);
   };
 
@@ -243,6 +326,14 @@ const Index = () => {
         </div>
         
         <div className="flex space-x-2">
+          <Button
+            onClick={toggleChat}
+            variant="ghost"
+            size="icon"
+            className="text-cyan-300 hover:text-cyan-100 hover:bg-cyan-900/50"
+          >
+            <MessageSquare className="h-5 w-5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -332,7 +423,7 @@ const Index = () => {
         {/* Voice prompt */}
         {!isListening && systemStatus === 'READY' && (
           <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3">
-            <span className="text-cyan-200 text-lg">Say Jarvis</span>
+            <span className="text-cyan-200 text-lg">Say "Jarvis"</span>
           </div>
         )}
       </div>
@@ -350,15 +441,17 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Chat Interface - Hidden by default, can be toggled */}
-      <div className="absolute top-4 right-4 w-80 max-h-96 z-20">
-        <Card className="bg-slate-800/80 backdrop-blur-sm border-cyan-800/50 p-4">
-          <ChatInterface 
-            messages={messages} 
-            onSendMessage={handleUserMessage}
-          />
-        </Card>
-      </div>
+      {/* Chat Interface - Only shown when toggled */}
+      {showChat && (
+        <div className="absolute top-4 right-4 w-80 max-h-96 z-20">
+          <Card className="bg-slate-800/80 backdrop-blur-sm border-cyan-800/50 p-4">
+            <ChatInterface 
+              messages={messages} 
+              onSendMessage={handleUserMessage}
+            />
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
