@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,6 +28,19 @@ const Index = () => {
   } = useSpeechRecognition();
   
   const { speak, stop: stopSpeaking, isSpeaking: textToSpeechActive } = useTextToSpeech();
+
+  // Add mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     setIsListening(speechListening);
@@ -325,10 +337,10 @@ const Index = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
         <div className="text-center space-y-8">
           <div className="space-y-4">
-            <h1 className="text-6xl md:text-8xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+            <h1 className={`font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent ${isMobile ? 'text-4xl' : 'text-6xl md:text-8xl'}`}>
               JARVIS
             </h1>
-            <p className="text-xl md:text-2xl text-blue-200 opacity-80">
+            <p className={`text-blue-200 opacity-80 ${isMobile ? 'text-lg' : 'text-xl md:text-2xl'}`}>
               Just A Rather Very Intelligent System
             </p>
           </div>
@@ -337,9 +349,11 @@ const Index = () => {
             <div className="absolute inset-0 bg-blue-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
             <Button
               onClick={activateJarvis}
-              className="relative bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white px-12 py-6 rounded-full text-xl font-semibold shadow-2xl transform hover:scale-105 transition-all duration-300"
+              className={`relative bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full font-semibold shadow-2xl transform hover:scale-105 transition-all duration-300 ${
+                isMobile ? 'px-8 py-4 text-lg' : 'px-12 py-6 text-xl'
+              }`}
             >
-              <Power className="mr-3 h-6 w-6" />
+              <Power className={`mr-3 ${isMobile ? 'h-5 w-5' : 'h-6 w-6'}`} />
               Activate JARVIS
             </Button>
           </div>
@@ -350,22 +364,24 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <div className="grid grid-cols-20 gap-1">
-            {[...Array(400)].map((_, i) => (
-              <div key={i} className="w-2 h-2 bg-cyan-400 rounded-sm opacity-30"></div>
-            ))}
+      {/* Background pattern - simplified for mobile */}
+      {!isMobile && (
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div className="grid grid-cols-20 gap-1">
+              {[...Array(400)].map((_, i) => (
+                <div key={i} className="w-2 h-2 bg-cyan-400 rounded-sm opacity-30"></div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Header */}
       <div className="relative z-10 flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <h1 className="text-2xl md:text-3xl font-bold text-cyan-300">JARVIS</h1>
+          <h1 className={`font-bold text-cyan-300 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>JARVIS</h1>
           <span className="text-sm text-cyan-400 opacity-80">Online</span>
         </div>
         
@@ -390,18 +406,18 @@ const Index = () => {
 
       {/* System Information */}
       <div className="relative z-10 max-w-6xl mx-auto mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-cyan-300">
+        <div className={`grid gap-4 text-cyan-300 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
           <div>
             <div className="text-sm opacity-70">command :</div>
-            <div className="text-lg">{currentCommand || 'Awaiting input...'}</div>
+            <div className={`${isMobile ? 'text-base' : 'text-lg'}`}>{currentCommand || 'Awaiting input...'}</div>
           </div>
           <div>
             <div className="text-sm opacity-70">understand level :</div>
-            <div className="text-lg">{understandLevel || 'Ready'}</div>
+            <div className={`${isMobile ? 'text-base' : 'text-lg'}`}>{understandLevel || 'Ready'}</div>
           </div>
           <div>
             <div className="text-sm opacity-70">response :</div>
-            <div className="text-lg">{currentResponse || 'Standby'}</div>
+            <div className={`${isMobile ? 'text-base' : 'text-lg'}`}>{currentResponse || 'Standby'}</div>
           </div>
         </div>
       </div>
@@ -410,22 +426,22 @@ const Index = () => {
       <div className="relative z-10 flex flex-col items-center justify-center mt-16">
         {/* Main circular interface */}
         <div className="relative">
-          {/* Outer rings */}
-          <div className="absolute inset-0 w-80 h-80 border-4 border-cyan-400 rounded-full opacity-30 animate-spin" style={{animationDuration: '20s'}}></div>
-          <div className="absolute inset-4 w-72 h-72 border-2 border-cyan-300 rounded-full opacity-40 animate-spin" style={{animationDuration: '15s', animationDirection: 'reverse'}}></div>
+          {/* Outer rings - smaller on mobile */}
+          <div className={`absolute inset-0 border-4 border-cyan-400 rounded-full opacity-30 animate-spin ${isMobile ? 'w-64 h-64' : 'w-80 h-80'}`} style={{animationDuration: '20s'}}></div>
+          <div className={`absolute inset-4 border-2 border-cyan-300 rounded-full opacity-40 animate-spin ${isMobile ? 'w-56 h-56' : 'w-72 h-72'}`} style={{animationDuration: '15s', animationDirection: 'reverse'}}></div>
           
           {/* Inner circle segments */}
-          <div className="absolute inset-8 w-64 h-64 rounded-full border-4 border-transparent">
+          <div className={`absolute inset-8 rounded-full border-4 border-transparent ${isMobile ? 'w-48 h-48' : 'w-64 h-64'}`}>
             {[...Array(24)].map((_, i) => (
               <div
                 key={i}
-                className={`absolute w-1 h-6 bg-cyan-400 rounded-full transform origin-bottom ${
+                className={`absolute w-1 bg-cyan-400 rounded-full transform origin-bottom ${
                   isListening ? 'opacity-100' : 'opacity-30'
-                }`}
+                } ${isMobile ? 'h-4' : 'h-6'}`}
                 style={{
                   left: '50%',
                   bottom: '50%',
-                  transform: `translateX(-50%) rotate(${i * 15}deg) translateY(-120px)`,
+                  transform: `translateX(-50%) rotate(${i * 15}deg) translateY(${isMobile ? '-96px' : '-120px'})`,
                   animationDelay: `${i * 0.1}s`
                 }}
               />
@@ -433,10 +449,12 @@ const Index = () => {
           </div>
           
           {/* Center button */}
-          <div className="relative w-80 h-80 flex items-center justify-center">
+          <div className={`relative flex items-center justify-center ${isMobile ? 'w-64 h-64' : 'w-80 h-80'}`}>
             <Button
               onClick={toggleListening}
-              className={`w-32 h-32 rounded-full text-xl font-bold transition-all duration-300 ${
+              className={`rounded-full font-bold transition-all duration-300 ${
+                isMobile ? 'w-24 h-24 text-lg' : 'w-32 h-32 text-xl'
+              } ${
                 isListening 
                   ? 'bg-green-600 hover:bg-green-500 shadow-green-500/50 animate-pulse' 
                   : systemStatus === 'PROCESSING'
@@ -459,7 +477,7 @@ const Index = () => {
         {/* Voice prompt */}
         {!isListening && systemStatus === 'READY' && (
           <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3">
-            <span className="text-cyan-200 text-lg">Say "Jarvis"</span>
+            <span className={`text-cyan-200 ${isMobile ? 'text-base' : 'text-lg'}`}>Say "Jarvis"</span>
           </div>
         )}
       </div>
