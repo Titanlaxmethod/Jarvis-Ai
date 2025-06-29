@@ -5,8 +5,11 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import VoiceVisualizer from '@/components/VoiceVisualizer';
 import ChatInterface from '@/components/ChatInterface';
+import VoiceSettings from '@/components/VoiceSettings';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useEnhancedTextToSpeech } from '@/hooks/useEnhancedTextToSpeech';
+import { useConversationContext } from '@/hooks/useConversationContext';
+import { fetchJoke } from '@/services/jokesService';
 
 const Index = () => {
   const [isActive, setIsActive] = useState(false);
@@ -17,6 +20,7 @@ const Index = () => {
   const [understandLevel, setUnderstandLevel] = useState('');
   const [currentResponse, setCurrentResponse] = useState('');
   const [systemStatus, setSystemStatus] = useState('START');
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -27,7 +31,21 @@ const Index = () => {
     resetTranscript 
   } = useSpeechRecognition();
   
-  const { speak, stop: stopSpeaking, isSpeaking: textToSpeechActive } = useTextToSpeech();
+  const { 
+    speak, 
+    stop: stopSpeaking, 
+    isSpeaking: textToSpeechActive,
+    voices,
+    currentVoice,
+    setVoice
+  } = useEnhancedTextToSpeech();
+
+  const {
+    addJokeToMemory,
+    hasRecentlyToldJoke,
+    addToHistory,
+    getRecentContext
+  } = useConversationContext();
 
   // Add mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -208,23 +226,43 @@ const Index = () => {
     return null;
   };
 
+  const handleJokeRequest = async (): Promise<string> => {
+    try {
+      let joke = await fetchJoke();
+      let attempts = 0;
+      
+      // Try to get a joke we haven't told recently
+      while (hasRecentlyToldJoke(joke) && attempts < 5) {
+        joke = await fetchJoke();
+        attempts++;
+      }
+      
+      addJokeToMemory(joke);
+      addToHistory('joke', `Told joke: ${joke.substring(0, 50)}...`);
+      
+      return joke;
+    } catch (error) {
+      console.error('Error fetching joke:', error);
+      return "I'm having trouble accessing my joke database, sir. Perhaps you could tell me one instead?";
+    }
+  };
+
   const handleUserMessage = async (message: string) => {
     const userMessage = { text: message, isUser: true, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setSystemStatus('PROCESSING');
     
     try {
-      // Check for mobile commands first
-      let response = await handleMobileCommands(message);
+      let response: string;
       
-      // Check for personality responses
-      if (!response) {
-        response = handlePersonalityResponses(message);
-      }
-      
-      // Get AI response if no special command matched
-      if (!response) {
-        response = await getAIResponse(message);
+      // Check if it's a joke request
+      if (message.toLowerCase().includes('joke') || message.toLowerCase().includes('tell me something funny')) {
+        response = await handleJokeRequest();
+      } else {
+        // Check for mobile commands first
+        response = await handleMobileCommands(message) || 
+                  handlePersonalityResponses(message) || 
+                  await getAIResponse(message);
       }
       
       setUnderstandLevel('Command understood');
@@ -249,6 +287,12 @@ const Index = () => {
   const getAIResponse = async (message: string): Promise<string> => {
     const API_KEY = "AIzaSyDz-Kn2L-hBa7Bi6mfIQXVI8Rjqgaq4igI";
     
+    // Get recent conversation context
+    const recentContext = getRecentContext('general');
+    const contextString = recentContext.length > 0 
+      ? `Previous context: ${recentContext.map(c => c.context).join(', ')}. ` 
+      : '';
+    
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
         method: 'POST',
@@ -258,11 +302,11 @@ const Index = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. User message: ${message}`
+              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. ${contextString}User message: ${message}`
             }]
           }],
           generationConfig: {
-            temperature: 0.8,
+            temperature: 0.9,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 200,
@@ -277,7 +321,9 @@ const Index = () => {
       const data = await response.json();
       
       if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        return data.candidates[0].content.parts[0].text;
+        const aiResponse = data.candidates[0].content.parts[0].text;
+        addToHistory('general', `User: ${message}, AI: ${aiResponse.substring(0, 50)}...`);
+        return aiResponse;
       } else {
         throw new Error('Invalid response format');
       }
@@ -343,6 +389,11 @@ const Index = () => {
             <p className={`text-blue-200 opacity-80 ${isMobile ? 'text-lg' : 'text-xl md:text-2xl'}`}>
               Just A Rather Very Intelligent System
             </p>
+            {currentVoice && (
+              <p className="text-cyan-400 text-sm">
+                Voice: {currentVoice.name} ({currentVoice.quality})
+              </p>
+            )}
           </div>
           
           <div className="relative">
@@ -357,7 +408,24 @@ const Index = () => {
               Activate JARVIS
             </Button>
           </div>
+          
+          <Button
+            onClick={() => setShowVoiceSettings(true)}
+            variant="outline"
+            className="border-cyan-400 text-cyan-300 hover:bg-cyan-900/50"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Voice Settings
+          </Button>
         </div>
+        
+        <VoiceSettings
+          voices={voices}
+          currentVoice={currentVoice}
+          onVoiceChange={setVoice}
+          isOpen={showVoiceSettings}
+          onClose={() => setShowVoiceSettings(false)}
+        />
       </div>
     );
   }
@@ -383,10 +451,16 @@ const Index = () => {
           <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
           <h1 className={`font-bold text-cyan-300 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>JARVIS</h1>
           <span className="text-sm text-cyan-400 opacity-80">Online</span>
+          {currentVoice && (
+            <span className="text-xs text-cyan-500 opacity-60">
+              {currentVoice.name.split(' ')[0]}
+            </span>
+          )}
         </div>
         
         <div className="flex space-x-2">
           <Button
+            onClick={() => setShowVoiceSettings(true)}
             variant="ghost"
             size="icon"
             className="text-cyan-300 hover:text-cyan-100 hover:bg-cyan-900/50"
