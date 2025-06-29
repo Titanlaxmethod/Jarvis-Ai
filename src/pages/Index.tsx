@@ -18,7 +18,6 @@ const Index = () => {
   const [understandLevel, setUnderstandLevel] = useState('');
   const [currentResponse, setCurrentResponse] = useState('');
   const [systemStatus, setSystemStatus] = useState('START');
-  const [showChat, setShowChat] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -143,6 +142,12 @@ const Index = () => {
         window.open('https://gmail.com/mail/u/0/#inbox?compose=new', '_blank');
         return "Opening Gmail composer for you, sir.";
       }
+    }
+    
+    // App creation commands
+    if (lowerMessage.includes('make app') || lowerMessage.includes('create app') || lowerMessage.includes('build app')) {
+      const appType = lowerMessage.match(/make.*app|create.*app|build.*app/i)?.[0] || 'app';
+      return `I understand you want me to create an app, sir. While I can't directly create apps like Lovable does, I can help you plan the structure, suggest features, and guide you through the development process. What kind of app did you have in mind? A web app, mobile app, or something specific like a todo app, weather app, or social media app?`;
     }
     
     // System settings commands (simulated responses since we can't actually control device settings)
@@ -291,10 +296,6 @@ const Index = () => {
     }
   };
 
-  const toggleChat = () => {
-    setShowChat(!showChat);
-  };
-
   const activateJarvis = () => {
     setIsActive(true);
     setSystemStatus('ONLINE');
@@ -316,7 +317,6 @@ const Index = () => {
       setCurrentCommand('');
       setUnderstandLevel('');
       setCurrentResponse('');
-      setShowChat(false);
     }, 2000);
   };
 
@@ -370,14 +370,6 @@ const Index = () => {
         </div>
         
         <div className="flex space-x-2">
-          <Button
-            onClick={toggleChat}
-            variant="ghost"
-            size="icon"
-            className="text-cyan-300 hover:text-cyan-100 hover:bg-cyan-900/50"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -484,18 +476,6 @@ const Index = () => {
           </Button>
         </div>
       </div>
-
-      {/* Chat Interface - Only shown when toggled */}
-      {showChat && (
-        <div className="absolute top-4 right-4 w-80 max-h-96 z-20">
-          <Card className="bg-slate-800/80 backdrop-blur-sm border-cyan-800/50 p-4">
-            <ChatInterface 
-              messages={messages} 
-              onSendMessage={handleUserMessage}
-            />
-          </Card>
-        </div>
-      )}
     </div>
   );
 };
