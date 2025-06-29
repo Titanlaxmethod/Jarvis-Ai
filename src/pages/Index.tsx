@@ -101,6 +101,50 @@ const Index = () => {
       }
     }
     
+    if (lowerMessage.includes('open') && lowerMessage.includes('telegram')) {
+      window.open('https://web.telegram.org', '_blank');
+      return "Opening Telegram for you, sir.";
+    }
+    
+    if (lowerMessage.includes('open') && lowerMessage.includes('whatsapp')) {
+      window.open('https://web.whatsapp.com', '_blank');
+      return "Opening WhatsApp for you, sir.";
+    }
+    
+    if (lowerMessage.includes('open') && lowerMessage.includes('facebook')) {
+      window.open('https://facebook.com', '_blank');
+      return "Opening Facebook for you, sir.";
+    }
+    
+    if (lowerMessage.includes('open') && lowerMessage.includes('twitter')) {
+      window.open('https://twitter.com', '_blank');
+      return "Opening Twitter for you, sir.";
+    }
+    
+    if (lowerMessage.includes('open') && lowerMessage.includes('gmail')) {
+      window.open('https://gmail.com', '_blank');
+      return "Opening Gmail for you, sir.";
+    }
+    
+    // Email writing commands
+    if (lowerMessage.includes('write email') || lowerMessage.includes('compose email') || lowerMessage.includes('send email')) {
+      const emailMatch = lowerMessage.match(/to\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      const nameMatch = lowerMessage.match(/to\s+([a-zA-Z\s]+)/);
+      
+      if (emailMatch) {
+        const email = emailMatch[1];
+        window.open(`mailto:${email}`, '_blank');
+        return `Opening email composer to ${email}, sir.`;
+      } else if (nameMatch) {
+        const name = nameMatch[1].trim();
+        window.open('https://gmail.com/mail/u/0/#inbox?compose=new', '_blank');
+        return `Opening Gmail composer for ${name}, sir. You'll need to enter their email address.`;
+      } else {
+        window.open('https://gmail.com/mail/u/0/#inbox?compose=new', '_blank');
+        return "Opening Gmail composer for you, sir.";
+      }
+    }
+    
     // System settings commands (simulated responses since we can't actually control device settings)
     if (lowerMessage.includes('turn on') || lowerMessage.includes('enable')) {
       if (lowerMessage.includes('bluetooth')) {
