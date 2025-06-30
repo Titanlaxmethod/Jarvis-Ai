@@ -13,6 +13,8 @@ import { useBackgroundVoice } from '@/hooks/useBackgroundVoice';
 import { fetchJoke } from '@/services/jokesService';
 import { searchService } from '@/services/searchService';
 import { appCreationService } from '@/services/appCreationService';
+import CallInterface from '@/components/CallInterface';
+import { aiCallingService } from '@/services/aiCallingService';
 
 const Index = () => {
   const [isActive, setIsActive] = useState(false);
@@ -25,6 +27,7 @@ const Index = () => {
   const [systemStatus, setSystemStatus] = useState('START');
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showCallInterface, setShowCallInterface] = useState(false);
   const lastProcessedCommand = useRef<string>('');
   const apiCallTimeout = useRef<NodeJS.Timeout | null>(null);
   const isSpeakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -374,6 +377,38 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
     }
   };
 
+  const handleAICallingCommands = async (message: string): Promise<string | null> => {
+    const lowerMessage = message.toLowerCase();
+    
+    // Check if it's a calling command
+    if (lowerMessage.includes('call') || 
+        lowerMessage.includes('phone') || 
+        lowerMessage.includes('dial') ||
+        lowerMessage.includes('ring') ||
+        lowerMessage.includes('emergency') ||
+        lowerMessage.includes('911')) {
+      
+      setShowCallInterface(true);
+      return await aiCallingService.handleCallCommand(message);
+    }
+    
+    // Handle call management commands
+    if (lowerMessage.includes('end call') || 
+        lowerMessage.includes('hang up') ||
+        lowerMessage.includes('disconnect call')) {
+      return await aiCallingService.handleCallCommand(message);
+    }
+    
+    // Show contacts or active calls
+    if (lowerMessage.includes('contacts') || 
+        lowerMessage.includes('active calls') ||
+        lowerMessage.includes('current calls')) {
+      return await aiCallingService.handleCallCommand(message);
+    }
+    
+    return null;
+  };
+
   const handleUserMessage = async (message: string) => {
     if (isProcessing || isSpeaking) {
       console.log('Already processing or speaking, ignoring:', message);
@@ -397,8 +432,9 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       if (message.toLowerCase().includes('joke') || message.toLowerCase().includes('tell me something funny')) {
         response = await handleJokeRequest();
       } else {
-        // Check for mobile commands first
-        response = await handleMobileCommands(message) || 
+        // Check for AI calling commands first
+        response = await handleAICallingCommands(message) ||
+                  await handleMobileCommands(message) || 
                   handlePersonalityResponses(message) || 
                   await getAIResponse(message);
       }
@@ -567,6 +603,7 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       setCurrentCommand('');
       setUnderstandLevel('');
       setCurrentResponse('');
+      setShowCallInterface(false);
     }, 2000);
   };
 
@@ -781,6 +818,9 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
           </Button>
         </div>
       </div>
+
+      {/* Add Call Interface */}
+      <CallInterface isVisible={showCallInterface} />
     </div>
   );
 };
