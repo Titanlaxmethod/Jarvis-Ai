@@ -1,32 +1,38 @@
 
-import { BackgroundMode } from '@capacitor/background-mode';
 import { App } from '@capacitor/app';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 class BackgroundVoiceService {
   private recognition: any;
   private isListening = false;
+  private isInitialized = false;
 
   async initialize() {
     try {
-      // Enable background mode
-      await BackgroundMode.enable();
+      // Check if we can use speech recognition
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        throw new Error('Speech recognition not supported');
+      }
+      
+      // Request persistent permissions for microphone
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (error) {
+        console.warn('Microphone permission denied:', error);
+      }
       
       // Start background listening
       this.startBackgroundListening();
+      this.isInitialized = true;
       
       console.log('Background voice service initialized');
     } catch (error) {
       console.error('Failed to initialize background voice service:', error);
+      throw error;
     }
   }
 
   private startBackgroundListening() {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      console.error('Speech recognition not supported');
-      return;
-    }
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     this.recognition = new SpeechRecognition();
     
@@ -49,7 +55,7 @@ class BackgroundVoiceService {
     };
 
     this.recognition.onend = () => {
-      // Restart recognition when it ends
+      // Restart recognition when it ends (for continuous listening)
       if (this.isListening) {
         setTimeout(() => this.startListening(), 100);
       }
@@ -83,8 +89,11 @@ class BackgroundVoiceService {
       // Check if app is in background and bring to foreground
       const appState = await App.getState();
       if (!appState.isActive) {
-        // App is in background, bring to foreground
-        window.location.href = '/';
+        // App is in background, try to bring to foreground
+        // On mobile web, we can try to focus the window
+        if (window.focus) {
+          window.focus();
+        }
       }
       
       // Notify the main app that wake word was detected
@@ -104,7 +113,11 @@ class BackgroundVoiceService {
 
   async disable() {
     this.stopListening();
-    await BackgroundMode.disable();
+    this.isInitialized = false;
+  }
+
+  get isActive() {
+    return this.isInitialized && this.isListening;
   }
 }
 

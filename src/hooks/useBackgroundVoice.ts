@@ -21,7 +21,7 @@ export const useBackgroundVoice = () => {
   const enableBackgroundListening = async () => {
     try {
       await backgroundVoiceService.initialize();
-      setIsBackgroundListening(true);
+      setIsBackgroundListening(backgroundVoiceService.isActive);
     } catch (error) {
       console.error('Failed to enable background listening:', error);
     }

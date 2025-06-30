@@ -14,12 +14,6 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       backgroundColor: '#1e293b',
       showSpinner: false
-    },
-    BackgroundMode: {
-      enabled: true,
-      title: 'JARVIS Voice Assistant',
-      text: 'Listening for wake word...',
-      silent: false
     }
   }
 };
