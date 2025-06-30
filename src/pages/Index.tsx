@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +9,7 @@ import VoiceSettings from '@/components/VoiceSettings';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useEnhancedTextToSpeech } from '@/hooks/useEnhancedTextToSpeech';
 import { useConversationContext } from '@/hooks/useConversationContext';
+import { useBackgroundVoice } from '@/hooks/useBackgroundVoice';
 import { fetchJoke } from '@/services/jokesService';
 
 const Index = () => {
@@ -46,6 +47,12 @@ const Index = () => {
     addToHistory,
     getRecentContext
   } = useConversationContext();
+
+  const {
+    isBackgroundListening,
+    enableBackgroundListening,
+    disableBackgroundListening
+  } = useBackgroundVoice();
 
   // Add mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -354,22 +361,34 @@ const Index = () => {
     }
   };
 
-  const activateJarvis = () => {
+  const activateJarvis = async () => {
     setIsActive(true);
     setSystemStatus('ONLINE');
-    speak("Good day, sir. JARVIS is now online and ready to assist you.");
+    
+    // Enable background listening for mobile
+    if (isMobile) {
+      await enableBackgroundListening();
+    }
+    
+    speak("Good day, sir. JARVIS is now online and ready to assist you. Background listening is now active.");
     toast({
       title: "JARVIS Activated",
-      description: "AI Assistant is now online and ready to help.",
+      description: "AI Assistant is now online with background listening enabled.",
     });
   };
 
-  const deactivateJarvis = () => {
+  const deactivateJarvis = async () => {
     setIsActive(false);
     stopListening();
     stopSpeaking();
+    
+    // Disable background listening
+    if (isBackgroundListening) {
+      await disableBackgroundListening();
+    }
+    
     setSystemStatus('OFFLINE');
-    speak("Powering down. Until next time, sir.");
+    speak("Powering down background systems. Until next time, sir.");
     setTimeout(() => {
       setMessages([]);
       setCurrentCommand('');
@@ -392,6 +411,12 @@ const Index = () => {
             {currentVoice && (
               <p className="text-cyan-400 text-sm">
                 Voice: {currentVoice.name} ({currentVoice.quality})
+              </p>
+            )}
+            {isMobile && (
+              <p className="text-green-400 text-sm flex items-center justify-center gap-2">
+                <Headphones className="h-4 w-4" />
+                Background voice activation ready
               </p>
             )}
           </div>
@@ -494,6 +519,14 @@ const Index = () => {
             <div className={`${isMobile ? 'text-base' : 'text-lg'}`}>{currentResponse || 'Standby'}</div>
           </div>
         </div>
+        
+        {/* Background listening status */}
+        {isBackgroundListening && (
+          <div className="mt-4 flex items-center justify-center gap-2 text-green-400 text-sm">
+            <Headphones className="h-4 w-4 animate-pulse" />
+            Background voice detection active
+          </div>
+        )}
       </div>
 
       {/* Central Interface */}
