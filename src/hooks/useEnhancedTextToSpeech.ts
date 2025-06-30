@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface Voice {
@@ -28,16 +27,24 @@ export const useEnhancedTextToSpeech = (): TextToSpeechResult => {
       const availableVoices = speechSynthesis.getVoices();
       const processedVoices: Voice[] = availableVoices
         .filter(voice => voice.lang.includes('en'))
-        .map(voice => ({
-          name: voice.name,
-          lang: voice.lang,
-          gender: voice.name.toLowerCase().includes('female') || 
-                  voice.name.toLowerCase().includes('woman') ||
-                  voice.name.toLowerCase().includes('zira') ||
-                  voice.name.toLowerCase().includes('hazel') ? 'female' : 'male',
-          quality: voice.name.includes('Premium') || voice.name.includes('Neural') ? 'high' : 
-                   voice.name.includes('Google') || voice.name.includes('Microsoft') ? 'medium' : 'low'
-        }))
+        .map(voice => {
+          const isFemaleName = voice.name.toLowerCase().includes('female') || 
+                              voice.name.toLowerCase().includes('woman') ||
+                              voice.name.toLowerCase().includes('zira') ||
+                              voice.name.toLowerCase().includes('hazel');
+          
+          const gender: 'male' | 'female' = isFemaleName ? 'female' : 'male';
+          
+          const quality: 'high' | 'medium' | 'low' = voice.name.includes('Premium') || voice.name.includes('Neural') ? 'high' : 
+                   voice.name.includes('Google') || voice.name.includes('Microsoft') ? 'medium' : 'low';
+          
+          return {
+            name: voice.name,
+            lang: voice.lang,
+            gender,
+            quality
+          };
+        })
         .sort((a, b) => {
           // Prioritize high quality voices
           if (a.quality === 'high' && b.quality !== 'high') return -1;
