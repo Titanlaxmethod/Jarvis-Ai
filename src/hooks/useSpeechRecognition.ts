@@ -62,9 +62,31 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const lastTranscriptRef = useRef<string>('');
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const processingRef = useRef<boolean>(false);
+  const lastProcessedTranscript = useRef<string>('');
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastResultTime = useRef<number>(0);
+
+  // Enhanced noise filtering
+  const isNoiseOrFiller = (text: string): boolean => {
+    const cleanText = text.toLowerCase().trim();
+    
+    // Filter out very short sounds
+    if (cleanText.length < 2) return true;
+    
+    // Filter out common filler words and sounds
+    const fillerWords = ['ah', 'oh', 'um', 'uh', 'hmm', 'er', 'eh', 'mm'];
+    if (fillerWords.includes(cleanText)) return true;
+    
+    // Filter out repeated characters (like "aaa" or "mmm")
+    if (/^(.)\1+$/.test(cleanText)) return true;
+    
+    // Filter out random short sounds
+    if (cleanText.length <= 3 && !/jarvis|hi|hey|ok/.test(cleanText)) return true;
+    
+    return false;
+  };
 
   const startListening = useCallback(() => {
     console.log('Attempting to start listening...');
@@ -80,6 +102,14 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
       recognitionRef.current.stop();
     }
 
+    // Clear any existing timeouts
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+
     const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognitionConstructor() as SpeechRecognition;
     
@@ -91,11 +121,20 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     recognition.onstart = () => {
       console.log('Speech recognition started');
       setIsListening(true);
-      processingRef.current = false;
+      isProcessingRef.current = false;
+      lastResultTime.current = Date.now();
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      if (processingRef.current) {
+      const currentTime = Date.now();
+      
+      // Prevent processing if we just processed something recently (debounce)
+      if (currentTime - lastResultTime.current < 300) {
+        console.log('Debouncing - too soon after last result');
+        return;
+      }
+
+      if (isProcessingRef.current) {
         console.log('Already processing, ignoring result');
         return;
       }
@@ -104,52 +143,70 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
       let finalTranscript = '';
       let interimTranscript = '';
 
+      // Process all results from the event
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        const transcript = result[0].transcript;
+        const transcript = result[0].transcript.trim();
         const confidence = result[0].confidence;
 
-        // Filter out low confidence results and short meaningless sounds
-        if (confidence < 0.7 && transcript.trim().length < 3) {
-          console.log('Low confidence or short transcript, ignoring:', transcript, 'confidence:', confidence);
+        console.log(`Result ${i}: "${transcript}" (confidence: ${confidence}, final: ${result.isFinal})`);
+
+        // Enhanced confidence and noise filtering
+        if (confidence < 0.6 || isNoiseOrFiller(transcript)) {
+          console.log('Low confidence or noise/filler, ignoring:', transcript, 'confidence:', confidence);
           continue;
         }
 
         if (result.isFinal) {
-          finalTranscript += transcript;
+          finalTranscript += transcript + ' ';
         } else {
-          interimTranscript += transcript;
+          interimTranscript += transcript + ' ';
         }
       }
 
       // Process final transcript
-      if (finalTranscript && finalTranscript.trim().length > 2) {
+      if (finalTranscript && finalTranscript.trim().length > 1) {
         const cleanTranscript = finalTranscript.trim();
         
-        // Check if this is the same as the last transcript to avoid duplicates
-        if (cleanTranscript !== lastTranscriptRef.current) {
-          console.log('Final transcript:', cleanTranscript);
-          lastTranscriptRef.current = cleanTranscript;
+        // Prevent duplicate processing
+        if (cleanTranscript === lastProcessedTranscript.current) {
+          console.log('Duplicate transcript ignored:', cleanTranscript);
+          return;
+        }
+
+        // Check if this is a meaningful command (not just noise)
+        if (cleanTranscript.length >= 3 && !isNoiseOrFiller(cleanTranscript)) {
+          console.log('Final transcript accepted:', cleanTranscript);
+          lastProcessedTranscript.current = cleanTranscript;
+          lastResultTime.current = currentTime;
           
-          // Clear any existing debounce
-          if (debounceTimeoutRef.current) {
-            clearTimeout(debounceTimeoutRef.current);
+          // Set processing flag to prevent duplicates
+          isProcessingRef.current = true;
+          
+          // Clear any existing timeout and set new one
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
           }
           
-          // Set processing flag and debounce
-          processingRef.current = true;
-          debounceTimeoutRef.current = setTimeout(() => {
+          processingTimeoutRef.current = setTimeout(() => {
             setTranscript(cleanTranscript);
-            processingRef.current = false;
-          }, 500); // 500ms debounce
+            // Reset processing flag after a delay to allow new commands
+            setTimeout(() => {
+              isProcessingRef.current = false;
+            }, 2000);
+          }, 100);
         } else {
-          console.log('Duplicate transcript ignored:', cleanTranscript);
+          console.log('Final transcript rejected as noise:', cleanTranscript);
         }
-      } else if (interimTranscript && interimTranscript.trim().length > 2) {
-        console.log('Interim transcript:', interimTranscript.trim());
-        // Show interim results for better UX, but don't process them
-        if (!processingRef.current) {
-          setTranscript(interimTranscript.trim());
+      }
+
+      // Handle interim results for better UX (but don't process them)
+      if (interimTranscript && interimTranscript.trim().length > 2 && !isProcessingRef.current) {
+        const cleanInterim = interimTranscript.trim();
+        if (!isNoiseOrFiller(cleanInterim)) {
+          console.log('Showing interim result:', cleanInterim);
+          // Only show interim, don't process
+          setTranscript(cleanInterim);
         }
       }
     };
@@ -157,13 +214,18 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
-      processingRef.current = false;
+      isProcessingRef.current = false;
       
       // Handle specific errors
       switch (event.error) {
         case 'no-speech':
           console.log('No speech detected. Continuing to listen...');
           // Don't restart immediately for no-speech to avoid loops
+          setTimeout(() => {
+            if (recognitionRef.current === recognition) {
+              startListening();
+            }
+          }, 2000);
           break;
         case 'audio-capture':
           alert('Microphone access denied. Please allow microphone access and try again.');
@@ -186,7 +248,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
       setIsListening(false);
       
       // Only auto-restart if we're not processing and the recognition wasn't manually stopped
-      if (!processingRef.current && recognitionRef.current === recognition) {
+      if (!isProcessingRef.current && recognitionRef.current === recognition) {
         console.log('Auto-restarting recognition...');
         setTimeout(() => {
           if (recognitionRef.current === recognition) {
@@ -204,17 +266,22 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     } catch (error) {
       console.error('Failed to start recognition:', error);
       setIsListening(false);
-      processingRef.current = false;
+      isProcessingRef.current = false;
     }
   }, []);
 
   const stopListening = useCallback(() => {
     console.log('Stopping listening...');
-    processingRef.current = false;
+    isProcessingRef.current = false;
     
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-      debounceTimeoutRef.current = null;
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
     }
     
     if (recognitionRef.current) {
@@ -227,12 +294,12 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
   const resetTranscript = useCallback(() => {
     console.log('Resetting transcript');
     setTranscript('');
-    lastTranscriptRef.current = '';
-    processingRef.current = false;
+    lastProcessedTranscript.current = '';
+    isProcessingRef.current = false;
     
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-      debounceTimeoutRef.current = null;
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
     }
   }, []);
 

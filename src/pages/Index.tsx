@@ -27,6 +27,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const lastProcessedCommand = useRef<string>('');
   const apiCallTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isSpeakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   
   const { 
@@ -87,21 +88,46 @@ const Index = () => {
 
   useEffect(() => {
     setIsSpeaking(textToSpeechActive);
-  }, [textToSpeechActive]);
+    
+    // When JARVIS starts speaking, temporarily pause listening to prevent self-listening
+    if (textToSpeechActive) {
+      console.log('JARVIS started speaking - pausing listening');
+      stopListening();
+      
+      // Clear any existing timeout
+      if (isSpeakingTimeoutRef.current) {
+        clearTimeout(isSpeakingTimeoutRef.current);
+      }
+      
+      // Resume listening after speaking ends with a small delay
+      isSpeakingTimeoutRef.current = setTimeout(() => {
+        if (isActive && !textToSpeechActive) {
+          console.log('JARVIS finished speaking - resuming listening');
+          startListening();
+        }
+      }, 2000);
+    }
+  }, [textToSpeechActive, isActive]);
 
   useEffect(() => {
-    if (transcript && transcript.trim() !== '' && !isProcessing) {
+    if (transcript && transcript.trim() !== '' && !isProcessing && !isSpeaking) {
       const lowerTranscript = transcript.toLowerCase().trim();
       
-      // Prevent duplicate processing
+      // Enhanced duplicate prevention
       if (lowerTranscript === lastProcessedCommand.current) {
         console.log('Duplicate command ignored:', lowerTranscript);
         resetTranscript();
         return;
       }
       
-      // Filter out background noise and very short commands
-      if (lowerTranscript.length < 3 || /^(ah|oh|um|uh|hmm)$/i.test(lowerTranscript)) {
+      // Enhanced noise filtering
+      const noisePatterns = [
+        /^(ah|oh|um|uh|hmm|er|eh|mm)$/i,
+        /^[a-z]{1,2}$/i, // Single or double letters
+        /^(.)\1+$/i, // Repeated characters
+      ];
+      
+      if (lowerTranscript.length < 3 || noisePatterns.some(pattern => pattern.test(lowerTranscript))) {
         console.log('Background noise or filler word ignored:', lowerTranscript);
         resetTranscript();
         return;
@@ -110,11 +136,22 @@ const Index = () => {
       setCurrentCommand(transcript);
       lastProcessedCommand.current = lowerTranscript;
       
-      // Enhanced wake word detection
-      if (lowerTranscript.includes('jarvis') && lowerTranscript.split(' ').length <= 3) {
+      // Enhanced wake word detection with better command parsing
+      if (lowerTranscript === 'jarvis' || lowerTranscript === 'jarvis.') {
         setUnderstandLevel('Wake word detected');
         handleWakeWord();
-      } else if (lowerTranscript.includes('jarvis') || lowerTranscript.length > 5) {
+      } else if (lowerTranscript.includes('jarvis') && lowerTranscript.length > 6) {
+        // Extract command after "jarvis"
+        const commandAfterJarvis = lowerTranscript.replace(/.*jarvis,?\s*/i, '').trim();
+        if (commandAfterJarvis.length > 2) {
+          setUnderstandLevel('Processing command...');
+          handleUserMessage(commandAfterJarvis);
+        } else {
+          setUnderstandLevel('Wake word detected');
+          handleWakeWord();
+        }
+      } else if (lowerTranscript.length >= 5) {
+        // Direct command without wake word
         setUnderstandLevel('Processing command...');
         handleUserMessage(transcript);
       } else {
@@ -122,7 +159,7 @@ const Index = () => {
       }
       resetTranscript();
     }
-  }, [transcript, isProcessing]);
+  }, [transcript, isProcessing, isSpeaking]);
 
   const handleSearchCommand = async (query: string): Promise<string> => {
     try {
@@ -164,11 +201,11 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
 
   const handleWakeWord = async () => {
     const wakeResponses = [
-      "Yes sir, how may I assist you?",
-      "At your service, sir.",
+      "Yes sir, how may I assist you today?",
+      "At your service, sir. I was created by Daniyal Bin Mushtaq.",
       "Standing by, sir. What can I do for you?",
       "Ready to assist, sir.",
-      "Yes sir, I'm here.",
+      "Yes sir, I'm here and ready.",
       "How can I help you today, sir?"
     ];
     
@@ -177,6 +214,8 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
     const aiMessage = { text: response, isUser: false, timestamp: new Date() };
     setMessages(prev => [...prev, aiMessage]);
     
+    // Pause listening before speaking
+    stopListening();
     await speak(response);
   };
 
@@ -295,7 +334,7 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
     
     // Creator information
     if (lowerMessage.includes('who made you') || lowerMessage.includes('who created you') || lowerMessage.includes('your creator')) {
-      return "I am an AI Assistant created by Daniyal Bin Mushtaq, sir.";
+      return "I am JARVIS, created by Daniyal Bin Mushtaq, sir. I am an advanced AI assistant designed to help you with various tasks.";
     }
     
     // Handle abuse with frank responses
@@ -336,8 +375,8 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
   };
 
   const handleUserMessage = async (message: string) => {
-    if (isProcessing) {
-      console.log('Already processing a command, ignoring:', message);
+    if (isProcessing || isSpeaking) {
+      console.log('Already processing or speaking, ignoring:', message);
       return;
     }
     
@@ -369,6 +408,8 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       const aiMessage = { text: response, isUser: false, timestamp: new Date() };
       setMessages(prev => [...prev, aiMessage]);
       
+      // Pause listening before speaking
+      stopListening();
       await speak(response);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -454,6 +495,11 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
   };
 
   const toggleListening = () => {
+    if (isSpeaking) {
+      console.log('Cannot toggle listening while speaking');
+      return;
+    }
+    
     if (isListening) {
       stopListening();
       setSystemStatus('READY');
@@ -466,6 +512,12 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
   const toggleSpeaking = () => {
     if (isSpeaking) {
       stopSpeaking();
+      // Resume listening after stopping speech
+      setTimeout(() => {
+        if (isActive && !isProcessing) {
+          startListening();
+        }
+      }, 500);
     }
   };
 
@@ -478,7 +530,14 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       await enableBackgroundListening();
     }
     
-    speak("Good day, sir. JARVIS is now online and ready to assist you. I was created by Daniyal Bin Mushtaq. Background listening is now active.");
+    const activationMessage = "Good day, sir. JARVIS is now online and ready to assist you. I was created by Daniyal Bin Mushtaq. Background listening is now active.";
+    await speak(activationMessage);
+    
+    // Start listening after activation message
+    setTimeout(() => {
+      startListening();
+    }, 3000);
+    
     toast({
       title: "JARVIS Activated",
       description: "AI Assistant is now online with background listening enabled.",
@@ -676,17 +735,21 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
           <div className={`relative flex items-center justify-center ${isMobile ? 'w-64 h-64' : 'w-80 h-80'}`}>
             <Button
               onClick={toggleListening}
+              disabled={isSpeaking}
               className={`rounded-full font-bold transition-all duration-300 ${
                 isMobile ? 'w-24 h-24 text-lg' : 'w-32 h-32 text-xl'
               } ${
-                isListening 
+                isSpeaking
+                  ? 'bg-red-600 hover:bg-red-500 shadow-red-500/50 animate-pulse cursor-not-allowed'
+                  : isListening 
                   ? 'bg-green-600 hover:bg-green-500 shadow-green-500/50 animate-pulse' 
                   : systemStatus === 'PROCESSING'
                   ? 'bg-yellow-600 hover:bg-yellow-500 shadow-yellow-500/50'
                   : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-500/50'
               } shadow-2xl border-4 border-cyan-300`}
             >
-              {systemStatus === 'PROCESSING' ? 'PROCESSING' : 
+              {isSpeaking ? 'SPEAKING' :
+               systemStatus === 'PROCESSING' ? 'PROCESSING' : 
                isListening ? 'LISTENING' : 
                systemStatus}
             </Button>
@@ -694,12 +757,12 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
           
           {/* Center dot indicator */}
           <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full ${
-            isListening ? 'bg-green-400' : 'bg-red-400'
+            isSpeaking ? 'bg-red-400' : isListening ? 'bg-green-400' : 'bg-cyan-400'
           } z-10`}></div>
         </div>
         
         {/* Voice prompt */}
-        {!isListening && systemStatus === 'READY' && (
+        {!isListening && !isSpeaking && systemStatus === 'READY' && (
           <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3">
             <span className={`text-cyan-200 ${isMobile ? 'text-base' : 'text-lg'}`}>Say "Jarvis"</span>
           </div>
