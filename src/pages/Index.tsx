@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Power, Settings, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,7 +55,7 @@ const Index = () => {
     getAIResponse
   } = useCommandHandlers();
 
-  // Command processing
+  // Command processing with improved calling detection
   useEffect(() => {
     if (transcript && transcript.trim() !== '' && !isProcessing && !isSpeaking) {
       const lowerTranscript = transcript.toLowerCase().trim();
@@ -67,6 +66,24 @@ const Index = () => {
         return;
       }
       
+      // Check if it's a calling command - these should be processed even with lower confidence
+      const callingKeywords = ['call', 'phone', 'dial', 'ring', 'emergency', '911'];
+      const phoneNumberPattern = /[\d\s\-\(\)]{8,}/;
+      const isCallingCommand = callingKeywords.some(keyword => lowerTranscript.includes(keyword)) || 
+                              phoneNumberPattern.test(lowerTranscript);
+      
+      // For calling commands, be more lenient with processing
+      if (isCallingCommand) {
+        console.log('Calling command detected, processing:', transcript);
+        setCurrentCommand(transcript);
+        lastProcessedCommand.current = lowerTranscript;
+        setUnderstandLevel('Processing call command...');
+        handleUserMessage(transcript);
+        resetTranscript();
+        return;
+      }
+      
+      // Regular noise filtering for non-calling commands
       const noisePatterns = [
         /^(ah|oh|um|uh|hmm|er|eh|mm)$/i,
         /^[a-z]{1,2}$/i,
@@ -81,19 +98,6 @@ const Index = () => {
       
       setCurrentCommand(transcript);
       lastProcessedCommand.current = lowerTranscript;
-      
-      // Enhanced command processing - check for calling first
-      console.log('Processing transcript:', transcript);
-      
-      // Check if it's a calling command first (including pure phone numbers)
-      const phoneNumberPattern = /^\s*[\d\s\-\(\)\+]{8,}\s*$/;
-      if (phoneNumberPattern.test(transcript.trim())) {
-        console.log('Pure phone number detected for calling');
-        setUnderstandLevel('Initiating call...');
-        handleUserMessage(transcript);
-        resetTranscript();
-        return;
-      }
       
       if (lowerTranscript === 'jarvis' || lowerTranscript === 'jarvis.') {
         setUnderstandLevel('Wake word detected');

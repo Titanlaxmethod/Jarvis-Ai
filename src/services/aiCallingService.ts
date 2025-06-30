@@ -1,4 +1,3 @@
-
 interface CallContact {
   name: string;
   phone: string;
@@ -40,7 +39,7 @@ class AICallingService {
     
     console.log(`AI Calling: Initiating call to ${contact.name} (${contact.phone})`);
     if (message) {
-      console.log(`AI Call message: ${message}`);
+      console.log(`AI Call message to deliver: ${message}`);
     }
     
     // Simulate dialing process
@@ -50,7 +49,7 @@ class AICallingService {
         updatedSession.status = 'connected';
         console.log(`AI Call connected to ${contact.name}`);
         
-        // Simulate call conversation
+        // Simulate call conversation with message delivery
         this.simulateCallConversation(callId, purpose, message);
       }
     }, 2000);
@@ -64,11 +63,14 @@ class AICallingService {
 
     console.log(`AI Call in progress with ${session.contact.name}`);
     
-    // Simulate conversation based on purpose or message
+    // Simulate message delivery
     if (message) {
-      console.log(`AI delivering message: ${message}`);
+      console.log(`AI delivering your message: "${message}"`);
+      console.log(`Message successfully delivered to ${session.contact.name}`);
     } else if (purpose) {
       console.log(`AI Call purpose: ${purpose}`);
+    } else {
+      console.log(`AI conducting general call with ${session.contact.name}`);
     }
 
     // Auto-end call after simulation
@@ -84,7 +86,8 @@ class AICallingService {
       session.endTime = new Date();
       session.duration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 1000);
       
-      console.log(`AI Call ended with ${session.contact.name}. Duration: ${session.duration} seconds`);
+      const messageStatus = session.message ? ` Message "${session.message}" was delivered successfully.` : '';
+      console.log(`AI Call ended with ${session.contact.name}. Duration: ${session.duration} seconds.${messageStatus}`);
       
       // Keep in history for a while then remove
       setTimeout(() => {
@@ -124,17 +127,44 @@ class AICallingService {
     return null;
   }
 
-  // Handle different call commands
+  // Handle different call commands with improved message processing
   async handleCallCommand(command: string): Promise<string> {
     const lowerCommand = command.toLowerCase();
     
     console.log('Processing call command:', command);
     
-    // Enhanced phone number detection for direct dialing
+    // Enhanced phone number detection
     const phoneNumberPattern = /(\+?[\d\s\-\(\)]{8,})/g;
     const phoneMatches = command.match(phoneNumberPattern);
     
-    // If command is just a phone number, make the call
+    // Check for "call [number] and tell/say [message]" pattern first
+    const callWithMessagePattern = /call\s+(.+?)\s+(?:and tell|and say)\s+(.+)/i;
+    const callWithMessageMatch = command.match(callWithMessagePattern);
+    
+    if (callWithMessageMatch) {
+      const contactInfo = callWithMessageMatch[1].trim();
+      const message = callWithMessageMatch[2].trim();
+      
+      console.log(`Call with message detected - Contact: ${contactInfo}, Message: ${message}`);
+      
+      // Extract phone number from contact info
+      const phoneInContact = this.extractPhoneNumber(contactInfo);
+      let contact = this.findContact(contactInfo);
+      
+      if (!contact && phoneInContact) {
+        contact = { name: `Contact ${phoneInContact.replace(/[^\d]/g, '')}`, phone: phoneInContact };
+        this.addContact(contact);
+      }
+      
+      if (contact) {
+        const session = await this.makeCall(contact, `Deliver message: ${message}`, message);
+        return `Calling ${contact.name} at ${contact.phone} to deliver your message: "${message}". The call is connecting now, sir.`;
+      } else {
+        return `I couldn't identify the contact "${contactInfo}", sir. Please provide a clear phone number.`;
+      }
+    }
+    
+    // If command contains just a phone number, make the call
     if (phoneMatches && phoneMatches.length > 0) {
       const phoneNumber = phoneMatches[0].trim();
       const cleanedPhone = phoneNumber.replace(/[^\d\+]/g, '');
@@ -143,32 +173,7 @@ class AICallingService {
         const contact = { name: `Contact ${cleanedPhone}`, phone: phoneNumber };
         this.addContact(contact);
         const session = await this.makeCall(contact);
-        return `Calling ${phoneNumber}, sir. Connection initiated. Call ID: ${session.id}`;
-      }
-    }
-    
-    // Call specific contact with message
-    if (lowerCommand.includes('call') && (lowerCommand.includes('and tell') || lowerCommand.includes('and say'))) {
-      const callMatch = lowerCommand.match(/call\s+(.+?)\s+(?:and tell|and say)\s+(.+)/);
-      if (callMatch) {
-        const contactInfo = callMatch[1].trim();
-        const message = callMatch[2].trim();
-        
-        // Check if contact info contains a phone number
-        const phoneInContact = this.extractPhoneNumber(contactInfo);
-        let contact = this.findContact(contactInfo);
-        
-        if (!contact && phoneInContact) {
-          contact = { name: `Contact ${phoneInContact}`, phone: phoneInContact };
-          this.addContact(contact);
-        }
-        
-        if (contact) {
-          const session = await this.makeCall(contact, `Deliver message: ${message}`, message);
-          return `Calling ${contact.name} at ${contact.phone} to deliver your message: "${message}". Call ID: ${session.id}`;
-        } else {
-          return `I couldn't find contact information for "${contactInfo}", sir. Please provide a phone number.`;
-        }
+        return `Calling ${phoneNumber} now, sir. Connection initiated.`;
       }
     }
     
@@ -191,7 +196,7 @@ class AICallingService {
         
         if (contact) {
           const session = await this.makeCall(contact);
-          return `Calling ${contact.name} at ${contact.phone}, sir. Call ID: ${session.id}`;
+          return `Calling ${contact.name} at ${contact.phone}, sir.`;
         } else {
           return `I couldn't find contact information for "${contactName}", sir. Please provide a phone number.`;
         }
@@ -202,7 +207,7 @@ class AICallingService {
     if (lowerCommand.includes('emergency') || lowerCommand.includes('911')) {
       const emergencyContact = { name: "Emergency Services", phone: "911" };
       const session = await this.makeCall(emergencyContact, "Emergency call initiated by JARVIS");
-      return `Initiating emergency call, sir. Call ID: ${session.id}`;
+      return `Initiating emergency call, sir.`;
     }
     
     // End call
@@ -234,7 +239,7 @@ class AICallingService {
       }
     }
     
-    return `I'm not sure how to handle that call command, sir. Try "call [name]", "call [phone number]", or "call [name] and tell them [message]".`;
+    return `I'm not sure how to handle that call command, sir. Try "call [phone number]", or "call [number] and tell them [message]".`;
   }
 }
 
