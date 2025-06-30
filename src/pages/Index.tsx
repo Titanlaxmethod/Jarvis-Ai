@@ -82,6 +82,19 @@ const Index = () => {
       setCurrentCommand(transcript);
       lastProcessedCommand.current = lowerTranscript;
       
+      // Enhanced command processing - check for calling first
+      console.log('Processing transcript:', transcript);
+      
+      // Check if it's a calling command first (including pure phone numbers)
+      const phoneNumberPattern = /^\s*[\d\s\-\(\)\+]{8,}\s*$/;
+      if (phoneNumberPattern.test(transcript.trim())) {
+        console.log('Pure phone number detected for calling');
+        setUnderstandLevel('Initiating call...');
+        handleUserMessage(transcript);
+        resetTranscript();
+        return;
+      }
+      
       if (lowerTranscript === 'jarvis' || lowerTranscript === 'jarvis.') {
         setUnderstandLevel('Wake word detected');
         handleWakeWord();
@@ -141,18 +154,20 @@ const Index = () => {
     try {
       let response: string;
       
-      if (message.toLowerCase().includes('joke') || message.toLowerCase().includes('tell me something funny')) {
+      console.log('Handling user message:', message);
+      
+      // Check for calling commands first - highest priority
+      const callingResponse = await handleAICallingCommands(message);
+      if (callingResponse) {
+        console.log('Calling command handled:', callingResponse);
+        setShowCallInterface(true);
+        response = callingResponse;
+      } else if (message.toLowerCase().includes('joke') || message.toLowerCase().includes('tell me something funny')) {
         response = await handleJokeRequest();
       } else {
-        const callingResponse = await handleAICallingCommands(message);
-        if (callingResponse) {
-          setShowCallInterface(true);
-          response = callingResponse;
-        } else {
-          response = await handleMobileCommands(message) || 
-                    handlePersonalityResponses(message) || 
-                    await getAIResponse(message);
-        }
+        response = await handleMobileCommands(message) || 
+                  handlePersonalityResponses(message) || 
+                  await getAIResponse(message);
       }
       
       setUnderstandLevel('Command understood');

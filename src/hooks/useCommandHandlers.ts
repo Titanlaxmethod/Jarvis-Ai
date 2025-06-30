@@ -195,22 +195,48 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
   const handleAICallingCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
     
+    // Enhanced phone number detection - better patterns
+    const phoneNumberPattern = /(\+?[\d\s\-\(\)]{8,})/g;
+    const phoneMatches = message.match(phoneNumberPattern);
+    
+    console.log('Checking for calling commands in message:', message);
+    console.log('Phone number matches found:', phoneMatches);
+    
+    // Check if message contains just a phone number (like "9419 348 191")
+    if (phoneMatches && phoneMatches.length > 0) {
+      const cleanedPhone = phoneMatches[0].replace(/[^\d\+]/g, '');
+      if (cleanedPhone.length >= 8) {
+        console.log('Pure phone number detected, initiating call:', cleanedPhone);
+        const contact = { name: `Contact ${cleanedPhone}`, phone: phoneMatches[0].trim() };
+        const session = await aiCallingService.makeCall(contact);
+        return `Calling ${contact.phone}, sir. Initiating connection now. Call ID: ${session.id}`;
+      }
+    }
+    
+    // Direct calling commands
     if (lowerMessage.includes('call') || 
         lowerMessage.includes('phone') || 
         lowerMessage.includes('dial') ||
-        lowerMessage.includes('ring') ||
-        lowerMessage.includes('emergency') ||
-        lowerMessage.includes('911')) {
+        lowerMessage.includes('ring')) {
       
+      console.log('Call command detected');
       return await aiCallingService.handleCallCommand(message);
     }
     
+    // Emergency commands
+    if (lowerMessage.includes('emergency') || lowerMessage.includes('911')) {
+      console.log('Emergency call detected');
+      return await aiCallingService.handleCallCommand(message);
+    }
+    
+    // Call management commands
     if (lowerMessage.includes('end call') || 
         lowerMessage.includes('hang up') ||
         lowerMessage.includes('disconnect call')) {
       return await aiCallingService.handleCallCommand(message);
     }
     
+    // Call information commands
     if (lowerMessage.includes('contacts') || 
         lowerMessage.includes('active calls') ||
         lowerMessage.includes('current calls')) {
