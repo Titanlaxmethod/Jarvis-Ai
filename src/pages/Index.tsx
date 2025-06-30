@@ -24,6 +24,9 @@ const Index = () => {
   const [currentResponse, setCurrentResponse] = useState('');
   const [systemStatus, setSystemStatus] = useState('START');
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const lastProcessedCommand = useRef<string>('');
+  const apiCallTimeout = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   
   const { 
@@ -75,31 +78,51 @@ const Index = () => {
       setSystemStatus('LISTENING');
     } else if (isSpeaking) {
       setSystemStatus('RESPONDING');
+    } else if (isProcessing) {
+      setSystemStatus('PROCESSING');
     } else {
       setSystemStatus('READY');
     }
-  }, [speechListening, isSpeaking]);
+  }, [speechListening, isSpeaking, isProcessing]);
 
   useEffect(() => {
     setIsSpeaking(textToSpeechActive);
   }, [textToSpeechActive]);
 
   useEffect(() => {
-    if (transcript && transcript.trim() !== '') {
+    if (transcript && transcript.trim() !== '' && !isProcessing) {
       const lowerTranscript = transcript.toLowerCase().trim();
+      
+      // Prevent duplicate processing
+      if (lowerTranscript === lastProcessedCommand.current) {
+        console.log('Duplicate command ignored:', lowerTranscript);
+        resetTranscript();
+        return;
+      }
+      
+      // Filter out background noise and very short commands
+      if (lowerTranscript.length < 3 || /^(ah|oh|um|uh|hmm)$/i.test(lowerTranscript)) {
+        console.log('Background noise or filler word ignored:', lowerTranscript);
+        resetTranscript();
+        return;
+      }
+      
       setCurrentCommand(transcript);
+      lastProcessedCommand.current = lowerTranscript;
       
       // Enhanced wake word detection
       if (lowerTranscript.includes('jarvis') && lowerTranscript.split(' ').length <= 3) {
         setUnderstandLevel('Wake word detected');
         handleWakeWord();
-      } else {
+      } else if (lowerTranscript.includes('jarvis') || lowerTranscript.length > 5) {
         setUnderstandLevel('Processing command...');
         handleUserMessage(transcript);
+      } else {
+        console.log('Command too short or unclear, ignoring:', lowerTranscript);
       }
       resetTranscript();
     }
-  }, [transcript]);
+  }, [transcript, isProcessing]);
 
   const handleSearchCommand = async (query: string): Promise<string> => {
     try {
@@ -313,9 +336,20 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
   };
 
   const handleUserMessage = async (message: string) => {
+    if (isProcessing) {
+      console.log('Already processing a command, ignoring:', message);
+      return;
+    }
+    
+    setIsProcessing(true);
     const userMessage = { text: message, isUser: true, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setSystemStatus('PROCESSING');
+    
+    // Clear any existing API timeout
+    if (apiCallTimeout.current) {
+      clearTimeout(apiCallTimeout.current);
+    }
     
     try {
       let response: string;
@@ -346,6 +380,8 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
         description: "Failed to process your request. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -359,6 +395,10 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       : '';
     
     try {
+      // Add timeout to prevent rate limiting loops
+      const controller = new AbortController();
+      apiCallTimeout.current = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
         method: 'POST',
         headers: {
@@ -367,7 +407,7 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. ${contextString}User message: ${message}`
+              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. ${contextString}User message: ${message}`
             }]
           }],
           generationConfig: {
@@ -377,7 +417,17 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
             maxOutputTokens: 200,
           },
         }),
+        signal: controller.signal
       });
+
+      if (apiCallTimeout.current) {
+        clearTimeout(apiCallTimeout.current);
+      }
+
+      if (response.status === 429) {
+        console.warn('Rate limited, using fallback response');
+        throw new Error('Rate limited');
+      }
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);
@@ -428,7 +478,7 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
       await enableBackgroundListening();
     }
     
-    speak("Good day, sir. JARVIS is now online and ready to assist you. Background listening is now active.");
+    speak("Good day, sir. JARVIS is now online and ready to assist you. I was created by Daniyal Bin Mushtaq. Background listening is now active.");
     toast({
       title: "JARVIS Activated",
       description: "AI Assistant is now online with background listening enabled.",
@@ -439,6 +489,12 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
     setIsActive(false);
     stopListening();
     stopSpeaking();
+    setIsProcessing(false);
+    lastProcessedCommand.current = '';
+    
+    if (apiCallTimeout.current) {
+      clearTimeout(apiCallTimeout.current);
+    }
     
     // Disable background listening
     if (isBackgroundListening) {
@@ -465,6 +521,9 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
             </h1>
             <p className={`text-blue-200 opacity-80 ${isMobile ? 'text-lg' : 'text-xl md:text-2xl'}`}>
               Just A Rather Very Intelligent System
+            </p>
+            <p className="text-green-400 text-sm">
+              Created by Daniyal Bin Mushtaq
             </p>
             {currentVoice && (
               <p className="text-cyan-400 text-sm">
@@ -627,7 +686,7 @@ Would you like me to proceed with creating this ${template.name}? I can provide 
                   : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-500/50'
               } shadow-2xl border-4 border-cyan-300`}
             >
-              {systemStatus === 'PROCESSING' ? 'LOADING' : 
+              {systemStatus === 'PROCESSING' ? 'PROCESSING' : 
                isListening ? 'LISTENING' : 
                systemStatus}
             </Button>
