@@ -11,6 +11,8 @@ import { useEnhancedTextToSpeech } from '@/hooks/useEnhancedTextToSpeech';
 import { useConversationContext } from '@/hooks/useConversationContext';
 import { useBackgroundVoice } from '@/hooks/useBackgroundVoice';
 import { fetchJoke } from '@/services/jokesService';
+import { searchService } from '@/services/searchService';
+import { appCreationService } from '@/services/appCreationService';
 
 const Index = () => {
   const [isActive, setIsActive] = useState(false);
@@ -99,6 +101,44 @@ const Index = () => {
     }
   }, [transcript]);
 
+  const handleSearchCommand = async (query: string): Promise<string> => {
+    try {
+      const results = await searchService.searchWeb(query);
+      
+      if (results.length > 0) {
+        // Open the first result
+        window.open(results[0].url, '_blank');
+        return `I found information about "${query}". Opening the top result: ${results[0].title}`;
+      } else {
+        return `I couldn't find specific results for "${query}", sir. Please try a different search term.`;
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      return `I'm having trouble searching for "${query}" at the moment, sir. Please try again later.`;
+    }
+  };
+
+  const handleAppCreationCommand = async (description: string): Promise<string> => {
+    const appType = appCreationService.suggestAppType(description);
+    const template = appCreationService.getAppTemplate(appType);
+    
+    if (template) {
+      // Create a preview of the app concept
+      const preview = `I can create a ${template.name} for you, sir. Here's what it would include:
+
+Preview: ${template.preview}
+
+Key Features:
+${template.features.map(feature => `• ${feature}`).join('\n')}
+
+Would you like me to proceed with creating this ${template.name}? I can provide you with the complete code structure.`;
+
+      return preview;
+    } else {
+      return `I understand you want to create an app, sir. Could you be more specific about what type of app? For example, a todo app, weather app, or calculator app?`;
+    }
+  };
+
   const handleWakeWord = async () => {
     const wakeResponses = [
       "Yes sir, how may I assist you?",
@@ -119,6 +159,24 @@ const Index = () => {
 
   const handleMobileCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
+    
+    // Search commands
+    if (lowerMessage.includes('search') || lowerMessage.includes('find') || lowerMessage.includes('look up')) {
+      const searchQuery = lowerMessage
+        .replace(/search for|search|find|look up|about/g, '')
+        .trim();
+      
+      if (searchQuery) {
+        return await handleSearchCommand(searchQuery);
+      } else {
+        return "What would you like me to search for, sir?";
+      }
+    }
+    
+    // App creation commands
+    if (lowerMessage.includes('make app') || lowerMessage.includes('create app') || lowerMessage.includes('build app')) {
+      return await handleAppCreationCommand(message);
+    }
     
     // App opening commands
     if (lowerMessage.includes('open') && (lowerMessage.includes('instagram') || lowerMessage.includes('insta'))) {
