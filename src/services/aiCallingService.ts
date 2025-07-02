@@ -12,6 +12,7 @@ interface CallSession {
   endTime?: Date;
   duration?: number;
   message?: string;
+  twilioSid?: string;
 }
 
 class AICallingService {
@@ -23,7 +24,7 @@ class AICallingService {
     { name: "Support", phone: "+1-555-0125" }
   ];
 
-  // Simulate AI calling functionality
+  // Real AI calling functionality using Twilio
   async makeCall(contact: CallContact, purpose?: string, message?: string): Promise<CallSession> {
     const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -37,57 +38,89 @@ class AICallingService {
 
     this.activeCalls.set(callId, session);
     
-    console.log(`AI Calling: Initiating call to ${contact.name} (${contact.phone})`);
+    console.log(`JARVIS: Initiating real call to ${contact.name} (${contact.phone})`);
     if (message) {
-      console.log(`AI Call message to deliver: ${message}`);
+      console.log(`JARVIS: Message to deliver: ${message}`);
     }
     
-    // Simulate dialing process
-    setTimeout(() => {
-      const updatedSession = this.activeCalls.get(callId);
-      if (updatedSession) {
-        updatedSession.status = 'connected';
-        console.log(`AI Call connected to ${contact.name}`);
-        
-        // Simulate call conversation with message delivery
-        this.simulateCallConversation(callId, purpose, message);
+    try {
+      // Import Supabase client
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        'https://yyotjoreossbqggyevek.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5b3Rqb3Jlb3NzYnFnZ3lldmVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMDE0ODYsImV4cCI6MjA2Njc3NzQ4Nn0.OEGR0xGD4QprW4uyrCWwr13p-j4dUj_8gztWUrXn2Eg'
+      );
+
+      // Call Twilio edge function
+      const { data, error } = await supabase.functions.invoke('twilio-call', {
+        body: {
+          to: contact.phone,
+          message: message,
+          action: 'make_call'
+        }
+      });
+
+      if (error) {
+        console.error('Twilio call error:', error);
+        session.status = 'failed';
+        return session;
       }
-    }, 2000);
+
+      if (data.success) {
+        session.twilioSid = data.callSid;
+        console.log(`JARVIS: Call initiated successfully - SID: ${data.callSid}`);
+        
+        // Update status to connected after a short delay
+        setTimeout(() => {
+          const updatedSession = this.activeCalls.get(callId);
+          if (updatedSession && updatedSession.status === 'dialing') {
+            updatedSession.status = 'connected';
+            console.log(`JARVIS: Call connected to ${contact.name}`);
+          }
+        }, 3000);
+      } else {
+        console.error('Twilio call failed:', data.error);
+        session.status = 'failed';
+      }
+    } catch (error) {
+      console.error('Error making Twilio call:', error);
+      session.status = 'failed';
+    }
 
     return session;
-  }
-
-  private simulateCallConversation(callId: string, purpose?: string, message?: string) {
-    const session = this.activeCalls.get(callId);
-    if (!session) return;
-
-    console.log(`AI Call in progress with ${session.contact.name}`);
-    
-    // Simulate message delivery
-    if (message) {
-      console.log(`AI delivering your message: "${message}"`);
-      console.log(`Message successfully delivered to ${session.contact.name}`);
-    } else if (purpose) {
-      console.log(`AI Call purpose: ${purpose}`);
-    } else {
-      console.log(`AI conducting general call with ${session.contact.name}`);
-    }
-
-    // Auto-end call after simulation
-    setTimeout(() => {
-      this.endCall(callId);
-    }, 8000); // 8 second simulated call
   }
 
   async endCall(callId: string): Promise<void> {
     const session = this.activeCalls.get(callId);
     if (session) {
+      // If we have a Twilio SID, end the call via API
+      if (session.twilioSid) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabase = createClient(
+            'https://yyotjoreossbqggyevek.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5b3Rqb3Jlb3NzYnFnZ3lldmVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMDE0ODYsImV4cCI6MjA2Njc3NzQ4Nn0.OEGR0xGD4QprW4uyrCWwr13p-j4dUj_8gztWUrXn2Eg'
+          );
+
+          await supabase.functions.invoke('twilio-call', {
+            body: {
+              action: 'end_call',
+              callSid: session.twilioSid
+            }
+          });
+          
+          console.log(`JARVIS: Call ${session.twilioSid} ended via Twilio API`);
+        } catch (error) {
+          console.error('Error ending Twilio call:', error);
+        }
+      }
+
       session.status = 'ended';
       session.endTime = new Date();
       session.duration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 1000);
       
       const messageStatus = session.message ? ` Message "${session.message}" was delivered successfully.` : '';
-      console.log(`AI Call ended with ${session.contact.name}. Duration: ${session.duration} seconds.${messageStatus}`);
+      console.log(`JARVIS: Call ended with ${session.contact.name}. Duration: ${session.duration} seconds.${messageStatus}`);
       
       // Keep in history for a while then remove
       setTimeout(() => {
