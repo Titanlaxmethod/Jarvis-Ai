@@ -149,15 +149,27 @@ class AICallingService {
     return Array.from(this.activeCalls.values());
   }
 
-  // Enhanced phone number extraction
+  // Enhanced phone number extraction and formatting
   extractPhoneNumber(text: string): string | null {
-    const phoneRegex = /(\+?[\d\s\-\(\)]{8,})/g;
-    const match = text.match(phoneRegex);
-    if (match) {
-      const cleaned = match[0].replace(/[^\d\+]/g, '');
-      return cleaned.length >= 8 ? match[0].trim() : null;
+    // Remove all non-digit characters except +
+    const cleaned = text.replace(/[^\d\+]/g, '');
+    
+    // If it starts with +, keep it
+    if (cleaned.startsWith('+') && cleaned.length >= 10) {
+      return cleaned;
     }
-    return null;
+    
+    // If it's 10 digits, assume it's Indian number and add +91
+    if (cleaned.length === 10 && !cleaned.startsWith('0')) {
+      return `+91${cleaned}`;
+    }
+    
+    // If it's 11+ digits without +, add +
+    if (cleaned.length >= 11 && !cleaned.startsWith('+')) {
+      return `+${cleaned}`;
+    }
+    
+    return cleaned.length >= 8 ? cleaned : null;
   }
 
   // Handle different call commands with improved message processing
@@ -200,13 +212,13 @@ class AICallingService {
     // If command contains just a phone number, make the call
     if (phoneMatches && phoneMatches.length > 0) {
       const phoneNumber = phoneMatches[0].trim();
-      const cleanedPhone = phoneNumber.replace(/[^\d\+]/g, '');
+      const formattedPhone = this.extractPhoneNumber(phoneNumber);
       
-      if (cleanedPhone.length >= 8) {
-        const contact = { name: `Contact ${cleanedPhone}`, phone: phoneNumber };
+      if (formattedPhone) {
+        const contact = { name: `Contact ${formattedPhone.replace(/[^\d]/g, '')}`, phone: formattedPhone };
         this.addContact(contact);
         const session = await this.makeCall(contact);
-        return `Calling ${phoneNumber} now, sir. Connection initiated.`;
+        return `Calling ${formattedPhone} now, sir. Connection initiated.`;
       }
     }
     
