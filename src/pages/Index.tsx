@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { Power, Settings, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ChatInterface from '@/components/ChatInterface';
 import VoiceSettings from '@/components/VoiceSettings';
 import CallInterface from '@/components/CallInterface';
 import ActivationScreen from '@/components/ActivationScreen';
 import MainInterface from '@/components/MainInterface';
 import { useJarvisState } from '@/hooks/useJarvisState';
 import { useCommandHandlers } from '@/hooks/useCommandHandlers';
+import { elevenLabsTTSService } from '@/services/elevenLabsTTSService';
 
 const Index = () => {
   const {
@@ -196,6 +198,78 @@ const Index = () => {
     }
   };
 
+  // Handle chat messages with voice responses
+  const handleChatMessage = async (message: string) => {
+    if (isProcessing || isSpeaking) {
+      toast({
+        title: "Please wait",
+        description: "JARVIS is currently processing another request.",
+        variant: "default"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    const userMessage = { text: message, isUser: true, timestamp: new Date() };
+    setMessages(prev => [...prev, userMessage]);
+    setSystemStatus('PROCESSING');
+    setCurrentCommand(message);
+    setUnderstandLevel('Processing chat message...');
+
+    try {
+      let response: string;
+      
+      console.log('Handling chat message:', message);
+      
+      // Process the message through the same command handlers
+      const callingResponse = await handleAICallingCommands(message);
+      if (callingResponse) {
+        setShowCallInterface(true);
+        response = callingResponse;
+      } else if (message.toLowerCase().includes('joke') || message.toLowerCase().includes('tell me something funny')) {
+        response = await handleJokeRequest();
+      } else {
+        response = await handleMobileCommands(message) || 
+                  handlePersonalityResponses(message) || 
+                  await getAIResponse(message);
+      }
+      
+      setUnderstandLevel('Command understood');
+      setCurrentResponse(response);
+      const aiMessage = { text: response, isUser: false, timestamp: new Date() };
+      setMessages(prev => [...prev, aiMessage]);
+      
+      // Use ElevenLabs TTS for voice response
+      console.log('JARVIS: Speaking response via ElevenLabs TTS');
+      const success = await elevenLabsTTSService.speak(response);
+      
+      if (!success) {
+        console.warn('ElevenLabs TTS failed, falling back to browser TTS');
+        await speak(response);
+      }
+      
+    } catch (error) {
+      console.error('Error processing chat message:', error);
+      setUnderstandLevel('Error processing');
+      const errorResponse = 'I encountered an error processing your message, sir. Please try again.';
+      setCurrentResponse(errorResponse);
+      
+      const aiMessage = { text: errorResponse, isUser: false, timestamp: new Date() };
+      setMessages(prev => [...prev, aiMessage]);
+      
+      // Speak error message
+      await elevenLabsTTSService.speak(errorResponse);
+      
+      toast({
+        title: "Error",
+        description: "Failed to process your message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (!isActive) {
     return (
       <>
@@ -290,15 +364,31 @@ const Index = () => {
         )}
       </div>
 
-      <MainInterface
-        systemStatus={systemStatus}
-        isListening={isListening}
-        isSpeaking={isSpeaking}
-        isProcessing={isProcessing}
-        isMobile={isMobile}
-        onToggleListening={toggleListening}
-        onToggleSpeaking={toggleSpeaking}
-      />
+      {/* Main Content Grid */}
+      <div className={`relative z-10 max-w-6xl mx-auto ${isMobile ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-2 gap-8'}`}>
+        {/* Voice Interface */}
+        <div>
+          <MainInterface
+            systemStatus={systemStatus}
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            isProcessing={isProcessing}
+            isMobile={isMobile}
+            onToggleListening={toggleListening}
+            onToggleSpeaking={toggleSpeaking}
+          />
+        </div>
+        
+        {/* Chat Interface */}
+        <div className={`${isMobile ? 'mt-8' : ''}`}>
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg border border-cyan-400/30 p-6">
+            <ChatInterface 
+              messages={messages} 
+              onSendMessage={handleChatMessage} 
+            />
+          </div>
+        </div>
+      </div>
 
       <CallInterface isVisible={showCallInterface} />
       
