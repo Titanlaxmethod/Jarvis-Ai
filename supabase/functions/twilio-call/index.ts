@@ -32,16 +32,35 @@ serve(async (req) => {
     console.log(`Twilio Call ${action}:`, { to, message: message?.substring(0, 50) });
 
     if (action === 'make_call') {
-      // Create TwiML for the call with proper message delivery
+      // Create TwiML for the call with proper message delivery and user interaction
       let twimlMessage: string;
       
       if (message && message.trim()) {
-        twimlMessage = `<Response><Say voice="alice">Hello, this is JARVIS calling on behalf of your assistant. I have a message for you: ${message.replace(/[<>&'"]/g, ' ')}</Say><Pause length="1"/><Say voice="alice">Thank you for your time. This message was delivered by JARVIS AI assistant.</Say></Response>`;
+        // Escape special characters for TwiML safety
+        const safeMessage = message.replace(/[<>&'"]/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        twimlMessage = `<Response>
+          <Say voice="alice">Hello, you have received a call from JARVIS AI assistant with an important message.</Say>
+          <Pause length="1"/>
+          <Gather numDigits="1" timeout="10" action="">
+            <Say voice="alice">Please press any key to hear your message, or hang up to decline.</Say>
+          </Gather>
+          <Say voice="alice">No response received. I have a message for you: ${safeMessage}</Say>
+          <Pause length="2"/>
+          <Say voice="alice">Message delivered by JARVIS AI assistant. Thank you.</Say>
+        </Response>`;
       } else {
-        twimlMessage = `<Response><Say voice="alice">Hello, this is JARVIS calling from your AI assistant. This is a test call to verify the connection is working properly.</Say></Response>`;
+        twimlMessage = `<Response>
+          <Say voice="alice">Hello, this is a test call from JARVIS AI assistant.</Say>
+          <Pause length="1"/>
+          <Gather numDigits="1" timeout="10" action="">
+            <Say voice="alice">Please press any key to confirm you received this call, or hang up.</Say>
+          </Gather>
+          <Say voice="alice">Test call completed. Connection verified. Thank you.</Say>
+        </Response>`;
       }
 
-      console.log('TwiML Message:', twimlMessage);
+      console.log('TwiML Message with interaction:', twimlMessage);
 
       // Make the call
       const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
