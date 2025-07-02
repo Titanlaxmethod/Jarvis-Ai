@@ -32,10 +32,16 @@ serve(async (req) => {
     console.log(`Twilio Call ${action}:`, { to, message: message?.substring(0, 50) });
 
     if (action === 'make_call') {
-      // Create TwiML for the call
-      const twimlMessage = message 
-        ? `<Response><Say voice="alice">Hello, this is JARVIS calling on behalf of your assistant. ${message}</Say></Response>`
-        : `<Response><Say voice="alice">Hello, this is JARVIS calling from your AI assistant.</Say></Response>`;
+      // Create TwiML for the call with proper message delivery
+      let twimlMessage: string;
+      
+      if (message && message.trim()) {
+        twimlMessage = `<Response><Say voice="alice">Hello, this is JARVIS calling on behalf of your assistant. I have a message for you: ${message.replace(/[<>&'"]/g, ' ')}</Say><Pause length="1"/><Say voice="alice">Thank you for your time. This message was delivered by JARVIS AI assistant.</Say></Response>`;
+      } else {
+        twimlMessage = `<Response><Say voice="alice">Hello, this is JARVIS calling from your AI assistant. This is a test call to verify the connection is working properly.</Say></Response>`;
+      }
+
+      console.log('TwiML Message:', twimlMessage);
 
       // Make the call
       const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
