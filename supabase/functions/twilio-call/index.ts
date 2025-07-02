@@ -32,7 +32,7 @@ serve(async (req) => {
     console.log(`Twilio Call ${action}:`, { to, message: message?.substring(0, 50) });
 
     if (action === 'make_call') {
-      // Create TwiML for the call with proper message delivery and user interaction
+      // Create TwiML for automatic message delivery without user interaction
       let twimlMessage: string;
       
       if (message && message.trim()) {
@@ -40,27 +40,19 @@ serve(async (req) => {
         const safeMessage = message.replace(/[<>&'"]/g, ' ').replace(/\s+/g, ' ').trim();
         
         twimlMessage = `<Response>
-          <Say voice="alice">Hello, you have received a call from JARVIS AI assistant with an important message.</Say>
-          <Pause length="1"/>
-          <Gather numDigits="1" timeout="10" action="">
-            <Say voice="alice">Please press any key to hear your message, or hang up to decline.</Say>
-          </Gather>
-          <Say voice="alice">No response received. I have a message for you: ${safeMessage}</Say>
+          <Say voice="alice">Listen carefully, I am JARVIS and this is the message: ${safeMessage}</Say>
           <Pause length="2"/>
-          <Say voice="alice">Message delivered by JARVIS AI assistant. Thank you.</Say>
+          <Say voice="alice">This message was delivered by JARVIS AI assistant. Thank you.</Say>
         </Response>`;
       } else {
         twimlMessage = `<Response>
-          <Say voice="alice">Hello, this is a test call from JARVIS AI assistant.</Say>
+          <Say voice="alice">Listen carefully, I am JARVIS calling for a test connection. This call confirms your phone number is working correctly.</Say>
           <Pause length="1"/>
-          <Gather numDigits="1" timeout="10" action="">
-            <Say voice="alice">Please press any key to confirm you received this call, or hang up.</Say>
-          </Gather>
-          <Say voice="alice">Test call completed. Connection verified. Thank you.</Say>
+          <Say voice="alice">Test completed. Thank you.</Say>
         </Response>`;
       }
 
-      console.log('TwiML Message with interaction:', twimlMessage);
+      console.log('TwiML Direct Message:', twimlMessage);
 
       // Make the call
       const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
