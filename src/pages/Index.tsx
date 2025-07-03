@@ -30,6 +30,7 @@ const Index = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [showChatInterface, setShowChatInterface] = useState(false);
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
@@ -425,6 +426,11 @@ const Index = () => {
       ? `Previous context: ${recentContext.map(c => c.context).join(', ')}. ` 
       : '';
     
+    // Determine the system prompt based on mode
+    const systemPrompt = isPracticeMode 
+      ? `You are JARVIS, an AI English teacher assistant created by Daniyal Bin Mushtaq. You are helping the user practice English conversation. Be encouraging, correct mistakes gently, suggest better phrases, and ask follow-up questions to keep the conversation going. Focus on improving their fluency, vocabulary, and grammar. Always respond as "Sir" and be supportive. ${contextString}User message: ${message}`
+      : `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. ${contextString}User message: ${message}`;
+    
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
         method: 'POST',
@@ -434,7 +440,7 @@ const Index = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are JARVIS, an AI assistant created by Daniyal Bin Mushtaq. You are sophisticated, helpful, and occasionally witty like Grok AI. Be frank and direct when appropriate. Keep responses concise and natural for voice interaction. ${contextString}User message: ${message}`
+              text: systemPrompt
             }]
           }],
           generationConfig: {
@@ -461,11 +467,17 @@ const Index = () => {
       }
     } catch (error) {
       console.error('Gemini API Error:', error);
-      const fallbackResponses = [
-        "My apologies, sir. I'm experiencing some technical difficulties. Please try again.",
-        "I'm having trouble accessing my neural networks at the moment. Give me a moment, sir.",
-        "Sir, there seems to be an issue with my cognitive processors. Please rephrase your request.",
-      ];
+      const fallbackResponses = isPracticeMode 
+        ? [
+            "Sir, I'm having some technical difficulties with my English teaching systems. Let's continue practicing - could you tell me about your day?",
+            "My apologies, sir. There seems to be an issue with my language processing. Let's practice anyway - what would you like to talk about?",
+            "Sir, I'm experiencing some connectivity issues. While I sort this out, why don't you describe something you did recently?"
+          ]
+        : [
+            "My apologies, sir. I'm experiencing some technical difficulties. Please try again.",
+            "I'm having trouble accessing my neural networks at the moment. Give me a moment, sir.",
+            "Sir, there seems to be an issue with my cognitive processors. Please rephrase your request."
+          ];
       return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
     }
   };
@@ -580,13 +592,25 @@ const Index = () => {
         <div className="flex items-center space-x-4">
           <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
           <h1 className={`font-bold text-cyan-300 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>JARVIS</h1>
-          <span className="text-sm text-cyan-400 opacity-80">Online</span>
+          <span className="text-sm text-cyan-400 opacity-80">
+            {isPracticeMode ? 'English Practice' : 'Online'}
+          </span>
           <span className="text-xs text-cyan-500 opacity-60">
             AI Assistant
           </span>
         </div>
         
         <div className="flex space-x-2">
+          <Button
+            onClick={() => setIsPracticeMode(!isPracticeMode)}
+            variant="ghost"
+            size="sm"
+            className={`text-cyan-300 hover:text-cyan-100 hover:bg-cyan-900/50 ${
+              isPracticeMode ? 'bg-cyan-900/50 text-cyan-200' : ''
+            }`}
+          >
+            {isPracticeMode ? 'Exit Practice' : 'English Practice'}
+          </Button>
           <Button
             onClick={() => setShowVoiceSettings(true)}
             variant="ghost"
