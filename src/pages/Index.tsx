@@ -285,10 +285,14 @@ const Index = () => {
   };
 
   const handleTextMessage = async () => {
+    console.log('handleTextMessage called with:', textInput);
     if (textInput.trim()) {
+      console.log('Sending message:', textInput.trim());
       await handleUserMessage(textInput.trim());
       setTextInput('');
       setShowTextInput(false);
+    } else {
+      console.log('Text input is empty, not sending');
     }
   };
 
