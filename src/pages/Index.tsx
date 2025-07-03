@@ -363,7 +363,7 @@ const Index = () => {
     setCurrentCommand('Analyzing captured image...');
     
     try {
-      const { data, error } = await supabase.functions.invoke('vision-analysis', {
+      const { data, error } = await supabase.functions.invoke('free-vision-analysis', {
         body: { 
           image: imageDataUrl,
           prompt: "Describe what you see in this image as JARVIS would - be detailed and helpful."
