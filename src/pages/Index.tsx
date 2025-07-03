@@ -683,8 +683,8 @@ const Index = () => {
         )}
       </div>
 
-      {/* Bottom controls */}
-      <div className="relative z-10 fixed bottom-20 left-1/2 transform -translate-x-1/2">
+      {/* Bottom controls - positioned above text input */}
+      <div className="relative z-10 fixed bottom-24 left-1/2 transform -translate-x-1/2">
         <div className="flex space-x-4">
           <Button
             onClick={toggleSpeaking}
