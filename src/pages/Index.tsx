@@ -29,6 +29,7 @@ const Index = () => {
   const [showTextInput, setShowTextInput] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [showChatInterface, setShowChatInterface] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
@@ -705,6 +706,14 @@ const Index = () => {
           >
             <Image className="h-5 w-5" />
           </Button>
+          <Button
+            onClick={() => setShowChatInterface(!showChatInterface)}
+            className={`w-12 h-12 rounded-full hover:bg-slate-600 border-2 border-cyan-400 ${
+              showChatInterface ? 'bg-cyan-600' : 'bg-slate-700'
+            }`}
+          >
+            <MessageSquare className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
@@ -800,6 +809,39 @@ const Index = () => {
                 <p className="text-sm text-cyan-400 mt-3 text-center opacity-75">
                   Point camera at what you want JARVIS to see and analyze
                 </p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Interface Modal */}
+      {showChatInterface && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full h-[80vh]">
+            <Card className="bg-slate-900/95 backdrop-blur-md border-2 border-cyan-400 shadow-2xl h-full flex flex-col">
+              <div className="p-6 border-b border-cyan-400/30">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-cyan-300 flex items-center">
+                    <MessageSquare className="mr-2 h-5 w-5" />
+                    JARVIS Chat History
+                  </h3>
+                  <Button
+                    onClick={() => setShowChatInterface(false)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex-1 p-6">
+                <ChatInterface 
+                  messages={messages} 
+                  onSendMessage={handleUserMessage}
+                />
               </div>
             </Card>
           </div>
