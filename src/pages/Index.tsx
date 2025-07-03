@@ -10,7 +10,7 @@ import VoiceSettings from '@/components/VoiceSettings';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useElevenLabsTTS } from '@/hooks/useElevenLabsTTS';
 import { useConversationContext } from '@/hooks/useConversationContext';
-import { useWebRTCCalling } from '@/hooks/useWebRTCCalling';
+import { useMobilePhoneCalling } from '@/hooks/useMobilePhoneCalling';
 import { fetchJoke } from '@/services/jokesService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -51,7 +51,7 @@ const Index = () => {
     getRecentContext
   } = useConversationContext();
 
-  const { makePhoneCall } = useWebRTCCalling();
+  const { makePhoneCall, isNativePlatform } = useMobilePhoneCalling();
 
   // Add mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -119,7 +119,7 @@ const Index = () => {
   const handleMobileCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
     
-    // FREE WebRTC calling
+    // Native mobile phone calling
     if (lowerMessage.includes('call ') && /\d{10,}/.test(message)) {
       const phoneMatch = message.match(/(\d{10,})/);
       if (phoneMatch) {
