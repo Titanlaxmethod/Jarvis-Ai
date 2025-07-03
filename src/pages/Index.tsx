@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Send, Camera, X } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Send, Camera, X, Upload, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ const Index = () => {
   const [showTextInput, setShowTextInput] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   const { 
@@ -358,15 +359,42 @@ const Index = () => {
     context.drawImage(video, 0, 0);
 
     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    
+    await analyzeImage(imageDataUrl, 'Analyzing captured image...');
+    stopCamera();
+  };
+
+  const handleImageUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please select an image file.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const imageDataUrl = e.target?.result as string;
+      await analyzeImage(imageDataUrl, 'Analyzing uploaded image...');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const analyzeImage = async (imageDataUrl: string, commandText: string) => {
     setSystemStatus('PROCESSING');
-    setCurrentCommand('Analyzing captured image...');
+    setCurrentCommand(commandText);
     
     try {
       const { data, error } = await supabase.functions.invoke('free-vision-analysis', {
         body: { 
           image: imageDataUrl,
-          prompt: "Describe what you see in this image as JARVIS would - be detailed and helpful."
+          prompt: "Analyze this image in detail. Describe all objects, people, text, colors, setting, and any other relevant details you can observe. Be specific and comprehensive in your analysis."
         }
       });
 
@@ -386,7 +414,6 @@ const Index = () => {
       setMessages(prev => [...prev, aiMessage]);
       
       await speak(response);
-      stopCamera();
     } catch (error) {
       console.error('Vision analysis error:', error);
       setUnderstandLevel('Error analyzing image');
@@ -684,8 +711,23 @@ const Index = () => {
           >
             {showCamera ? <X className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
           </Button>
+          <Button
+            onClick={handleImageUpload}
+            className="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 border-2 border-cyan-400"
+          >
+            <Image className="h-5 w-5" />
+          </Button>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
 
       {/* ChatGPT-style Text Input - Always visible at bottom */}
       <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent p-4 z-50">
