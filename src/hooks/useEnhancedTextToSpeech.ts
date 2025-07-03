@@ -31,12 +31,12 @@ export const useEnhancedTextToSpeech = (): TextToSpeechResult => {
         .map(voice => ({
           name: voice.name,
           lang: voice.lang,
-          gender: voice.name.toLowerCase().includes('female') || 
+          gender: (voice.name.toLowerCase().includes('female') || 
                   voice.name.toLowerCase().includes('woman') ||
                   voice.name.toLowerCase().includes('zira') ||
-                  voice.name.toLowerCase().includes('hazel') ? 'female' : 'male',
-          quality: voice.name.includes('Premium') || voice.name.includes('Neural') ? 'high' : 
-                   voice.name.includes('Google') || voice.name.includes('Microsoft') ? 'medium' : 'low'
+                  voice.name.toLowerCase().includes('hazel') ? 'female' : 'male') as 'male' | 'female',
+          quality: (voice.name.includes('Premium') || voice.name.includes('Neural') ? 'high' : 
+                   voice.name.includes('Google') || voice.name.includes('Microsoft') ? 'medium' : 'low') as 'high' | 'medium' | 'low'
         }))
         .sort((a, b) => {
           // Prioritize high quality voices
