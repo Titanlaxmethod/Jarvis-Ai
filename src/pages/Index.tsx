@@ -11,6 +11,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useElevenLabsTTS } from '@/hooks/useElevenLabsTTS';
 import { useConversationContext } from '@/hooks/useConversationContext';
 import { fetchJoke } from '@/services/jokesService';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const [isActive, setIsActive] = useState(false);
@@ -112,6 +113,34 @@ const Index = () => {
 
   const handleMobileCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
+    
+    // Call functionality
+    if (lowerMessage.includes('call ') && /\d{10,}/.test(message)) {
+      const phoneMatch = message.match(/(\d{10,})/);
+      if (phoneMatch) {
+        const phoneNumber = phoneMatch[1];
+        const messageText = message.replace(/call\s+\d+\s+(and\s+)?(tell\s+.*|say\s+.*)/i, '$2').trim();
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('twilio-call', {
+            body: { 
+              to: phoneNumber, 
+              message: messageText || "Hello, this is a call from JARVIS AI assistant."
+            }
+          });
+
+          if (error) {
+            console.error('Twilio call error:', error);
+            return `I encountered an error while trying to call ${phoneNumber}. Please try again.`;
+          }
+
+          return `I'm calling ${phoneNumber} now. The call has been initiated.`;
+        } catch (error) {
+          console.error('Call error:', error);
+          return `I had trouble making the call to ${phoneNumber}. Please check the number and try again.`;
+        }
+      }
+    }
     
     // App opening commands
     if (lowerMessage.includes('open') && (lowerMessage.includes('instagram') || lowerMessage.includes('insta'))) {
