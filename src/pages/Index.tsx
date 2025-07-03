@@ -591,24 +591,27 @@ const Index = () => {
 
       {/* Text Input Interface */}
       {showTextInput && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">
-          <Card className="bg-slate-800/90 backdrop-blur-sm border-cyan-400 p-4">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-50">
+          <Card className="bg-slate-900/95 backdrop-blur-md border-2 border-cyan-400 p-4 shadow-2xl shadow-cyan-500/20">
             <div className="flex space-x-2">
               <Input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message to JARVIS..."
-                className="bg-slate-700 border-cyan-400 text-white placeholder-slate-400 flex-1"
+                className="bg-slate-800 border-2 border-cyan-500 text-cyan-100 placeholder-cyan-400 flex-1 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-500/50"
                 autoFocus
               />
               <Button
                 onClick={handleTextMessage}
                 disabled={!textInput.trim()}
-                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50"
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 min-w-[44px]"
               >
                 <Send className="h-4 w-4" />
               </Button>
+            </div>
+            <div className="text-xs text-cyan-400 mt-2 opacity-75">
+              Press Enter to send or click the send button
             </div>
           </Card>
         </div>
