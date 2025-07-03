@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import VoiceVisualizer from '@/components/VoiceVisualizer';
 import ChatInterface from '@/components/ChatInterface';
@@ -21,6 +22,8 @@ const Index = () => {
   const [currentResponse, setCurrentResponse] = useState('');
   const [systemStatus, setSystemStatus] = useState('START');
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [textInput, setTextInput] = useState('');
+  const [showTextInput, setShowTextInput] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -281,6 +284,20 @@ const Index = () => {
         description: "Failed to process your request. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleTextMessage = async () => {
+    if (textInput.trim()) {
+      await handleUserMessage(textInput.trim());
+      setTextInput('');
+      setShowTextInput(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTextMessage();
     }
   };
 
@@ -566,8 +583,39 @@ const Index = () => {
           >
             {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </Button>
+          <Button
+            onClick={() => setShowTextInput(!showTextInput)}
+            className="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 border-2 border-cyan-400"
+          >
+            <MessageSquare className="h-5 w-5" />
+          </Button>
         </div>
       </div>
+
+      {/* Text Input Interface */}
+      {showTextInput && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">
+          <Card className="bg-slate-800/90 backdrop-blur-sm border-cyan-400 p-4">
+            <div className="flex space-x-2">
+              <Input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message to JARVIS..."
+                className="bg-slate-700 border-cyan-400 text-white placeholder-slate-400 flex-1"
+                autoFocus
+              />
+              <Button
+                onClick={handleTextMessage}
+                disabled={!textInput.trim()}
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
