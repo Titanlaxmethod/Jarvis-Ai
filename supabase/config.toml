@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.elevenlabs-tts]
 verify_jwt = false
+
+[functions.vision-analysis]
+verify_jwt = false

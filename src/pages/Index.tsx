@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Send } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Power, Settings, MessageSquare, Send, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,8 @@ const Index = () => {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [showTextInput, setShowTextInput] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
   
   const { 
@@ -331,6 +333,85 @@ const Index = () => {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      setShowCamera(true);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const captureImage = async () => {
+    if (!cameraStream) return;
+
+    const video = document.getElementById('camera-video') as HTMLVideoElement;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!video || !context) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
+
+    const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    
+    setSystemStatus('PROCESSING');
+    setCurrentCommand('Analyzing captured image...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('vision-analysis', {
+        body: { 
+          image: imageDataUrl,
+          prompt: "Describe what you see in this image as JARVIS would - be detailed and helpful."
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to analyze image');
+      }
+
+      const response = data.description;
+      setCurrentResponse(response);
+      setUnderstandLevel('Image analyzed');
+      
+      const aiMessage = { text: response, isUser: false, timestamp: new Date() };
+      setMessages(prev => [...prev, aiMessage]);
+      
+      await speak(response);
+      stopCamera();
+    } catch (error) {
+      console.error('Vision analysis error:', error);
+      setUnderstandLevel('Error analyzing image');
+      const errorResponse = 'I encountered an error while analyzing the image, sir. Please try again.';
+      setCurrentResponse(errorResponse);
+      toast({
+        title: "Vision Error",
+        description: "Failed to analyze the image. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getAIResponse = async (message: string): Promise<string> => {
     const API_KEY = "AIzaSyDz-Kn2L-hBa7Bi6mfIQXVI8Rjqgaq4igI";
     
@@ -609,6 +690,12 @@ const Index = () => {
           >
             {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </Button>
+          <Button
+            onClick={showCamera ? stopCamera : startCamera}
+            className="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 border-2 border-cyan-400"
+          >
+            {showCamera ? <X className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
+          </Button>
         </div>
       </div>
 
@@ -638,6 +725,68 @@ const Index = () => {
           </Card>
         </div>
       </div>
+
+      {/* Camera Interface */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="max-w-lg w-full">
+            <Card className="bg-slate-900/95 backdrop-blur-md border-2 border-cyan-400 shadow-2xl">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-semibold text-cyan-300">JARVIS Vision</h3>
+                  <Button
+                    onClick={stopCamera}
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+                
+                <div className="relative mb-4">
+                  <video
+                    id="camera-video"
+                    autoPlay
+                    playsInline
+                    muted
+                    ref={(video) => {
+                      if (video && cameraStream) {
+                        video.srcObject = cameraStream;
+                      }
+                    }}
+                    className="w-full h-64 object-cover rounded-lg border-2 border-cyan-500"
+                  />
+                  <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-sm font-semibold">
+                    LIVE
+                  </div>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={captureImage}
+                    className="flex-1 bg-cyan-600 hover:bg-cyan-500"
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Capture & Analyze
+                  </Button>
+                  <Button
+                    onClick={stopCamera}
+                    variant="outline"
+                    className="border-red-400 text-red-300 hover:bg-red-900/50"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                
+                <p className="text-sm text-cyan-400 mt-3 text-center opacity-75">
+                  Point camera at what you want JARVIS to see and analyze
+                </p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
 
     </div>
   );
