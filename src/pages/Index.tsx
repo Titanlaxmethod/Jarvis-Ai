@@ -12,6 +12,7 @@ import { useElevenLabsTTS } from '@/hooks/useElevenLabsTTS';
 import { useConversationContext } from '@/hooks/useConversationContext';
 import { useMobilePhoneCalling } from '@/hooks/useMobilePhoneCalling';
 import { fetchJoke } from '@/services/jokesService';
+import { freeVisionService } from '@/services/freeVisionService';
 import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
@@ -391,22 +392,9 @@ const Index = () => {
     setCurrentCommand(commandText);
     
     try {
-      const { data, error } = await supabase.functions.invoke('free-vision-analysis', {
-        body: { 
-          image: imageDataUrl,
-          prompt: "Analyze this image in detail. Describe all objects, people, text, colors, setting, and any other relevant details you can observe. Be specific and comprehensive in your analysis."
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to analyze image');
-      }
-
-      const response = data.description;
+      // Use the free browser-based vision service
+      const response = await freeVisionService.analyzeImage(imageDataUrl);
+      
       setCurrentResponse(response);
       setUnderstandLevel('Image analyzed');
       
