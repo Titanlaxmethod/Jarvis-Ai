@@ -116,31 +116,23 @@ const Index = () => {
   const handleMobileCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
     
-    // Call functionality
+    // Call simulation (free alternative to Twilio)
     if (lowerMessage.includes('call ') && /\d{10,}/.test(message)) {
       const phoneMatch = message.match(/(\d{10,})/);
       if (phoneMatch) {
         const phoneNumber = phoneMatch[1];
         const messageText = message.replace(/call\s+\d+\s+(and\s+)?(tell\s+.*|say\s+.*)/i, '$2').trim();
         
-        try {
-          const { data, error } = await supabase.functions.invoke('twilio-call', {
-            body: { 
-              to: phoneNumber, 
-              message: messageText || "Hello, this is a call from JARVIS AI assistant."
-            }
-          });
+        // Simulate calling by speaking the message and providing instructions
+        const callMessage = messageText || "Hello, this is a call from JARVIS AI assistant.";
+        
+        return `I would call ${phoneNumber} and say: "${callMessage}". However, since this is a web application, I cannot make actual phone calls. To enable real calling, you would need to:
 
-          if (error) {
-            console.error('Twilio call error:', error);
-            return `I encountered an error while trying to call ${phoneNumber}. Please try again.`;
-          }
+1. Set up a Twilio account with credits
+2. Or use your phone's native calling app
+3. Or use services like Google Voice, Skype, or WhatsApp calling
 
-          return `I'm calling ${phoneNumber} now. The call has been initiated.`;
-        } catch (error) {
-          console.error('Call error:', error);
-          return `I had trouble making the call to ${phoneNumber}. Please check the number and try again.`;
-        }
+For now, I can help you draft the message and you can make the call manually. Would you like me to help you with that?`;
       }
     }
     
