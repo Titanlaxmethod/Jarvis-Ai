@@ -37,3 +37,6 @@ enable_confirmations = false
 
 [functions.twilio-call]
 verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false

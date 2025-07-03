@@ -8,7 +8,7 @@ import VoiceVisualizer from '@/components/VoiceVisualizer';
 import ChatInterface from '@/components/ChatInterface';
 import VoiceSettings from '@/components/VoiceSettings';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useEnhancedTextToSpeech } from '@/hooks/useEnhancedTextToSpeech';
+import { useElevenLabsTTS } from '@/hooks/useElevenLabsTTS';
 import { useConversationContext } from '@/hooks/useConversationContext';
 import { fetchJoke } from '@/services/jokesService';
 
@@ -37,11 +37,8 @@ const Index = () => {
   const { 
     speak, 
     stop: stopSpeaking, 
-    isSpeaking: textToSpeechActive,
-    voices,
-    currentVoice,
-    setVoice
-  } = useEnhancedTextToSpeech();
+    isSpeaking: textToSpeechActive
+  } = useElevenLabsTTS();
 
   const {
     addJokeToMemory,
@@ -406,11 +403,9 @@ const Index = () => {
             <p className={`text-blue-200 opacity-80 ${isMobile ? 'text-lg' : 'text-xl md:text-2xl'}`}>
               Just A Rather Very Intelligent System
             </p>
-            {currentVoice && (
-              <p className="text-cyan-400 text-sm">
-                Voice: {currentVoice.name} ({currentVoice.quality})
-              </p>
-            )}
+            <p className="text-cyan-400 text-sm">
+              Voice: ElevenLabs Daniel (High Quality)
+            </p>
           </div>
           
           <div className="relative">
@@ -432,14 +427,14 @@ const Index = () => {
             className="border-cyan-400 text-cyan-300 hover:bg-cyan-900/50"
           >
             <Settings className="mr-2 h-4 w-4" />
-            Voice Settings
+            ElevenLabs Settings
           </Button>
         </div>
         
         <VoiceSettings
-          voices={voices}
-          currentVoice={currentVoice}
-          onVoiceChange={setVoice}
+          voices={[]}
+          currentVoice={null}
+          onVoiceChange={() => {}}
           isOpen={showVoiceSettings}
           onClose={() => setShowVoiceSettings(false)}
         />
@@ -468,11 +463,9 @@ const Index = () => {
           <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
           <h1 className={`font-bold text-cyan-300 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>JARVIS</h1>
           <span className="text-sm text-cyan-400 opacity-80">Online</span>
-          {currentVoice && (
-            <span className="text-xs text-cyan-500 opacity-60">
-              {currentVoice.name.split(' ')[0]}
-            </span>
-          )}
+          <span className="text-xs text-cyan-500 opacity-60">
+            ElevenLabs Daniel
+          </span>
         </div>
         
         <div className="flex space-x-2">
