@@ -408,7 +408,7 @@ const Index = () => {
               Just A Rather Very Intelligent System
             </p>
             <p className="text-cyan-400 text-sm">
-              Voice: ElevenLabs Daniel (High Quality)
+              Advanced AI Voice Assistant
             </p>
           </div>
           
@@ -431,7 +431,7 @@ const Index = () => {
             className="border-cyan-400 text-cyan-300 hover:bg-cyan-900/50"
           >
             <Settings className="mr-2 h-4 w-4" />
-            ElevenLabs Settings
+            Voice Settings
           </Button>
         </div>
         
@@ -468,7 +468,7 @@ const Index = () => {
           <h1 className={`font-bold text-cyan-300 ${isMobile ? 'text-xl' : 'text-2xl md:text-3xl'}`}>JARVIS</h1>
           <span className="text-sm text-cyan-400 opacity-80">Online</span>
           <span className="text-xs text-cyan-500 opacity-60">
-            ElevenLabs Daniel
+            AI Assistant
           </span>
         </div>
         

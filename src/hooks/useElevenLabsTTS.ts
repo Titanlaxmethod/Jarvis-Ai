@@ -11,7 +11,7 @@ export const useElevenLabsTTS = (): ElevenLabsTTSResult => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
-  const speak = useCallback(async (text: string, voiceId: string = 'onwK4e9ZLuTAKqWW03F9'): Promise<void> => {
+  const speak = useCallback(async (text: string, voiceId: string = '9BWtsMINqrJLrRacOk9x'): Promise<void> => {
     try {
       // Stop any currently playing audio
       if (currentAudio) {
