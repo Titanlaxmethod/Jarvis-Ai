@@ -10,6 +10,7 @@ import VoiceSettings from '@/components/VoiceSettings';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useElevenLabsTTS } from '@/hooks/useElevenLabsTTS';
 import { useConversationContext } from '@/hooks/useConversationContext';
+import { useWebRTCCalling } from '@/hooks/useWebRTCCalling';
 import { fetchJoke } from '@/services/jokesService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -49,6 +50,8 @@ const Index = () => {
     addToHistory,
     getRecentContext
   } = useConversationContext();
+
+  const { makePhoneCall } = useWebRTCCalling();
 
   // Add mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -116,23 +119,16 @@ const Index = () => {
   const handleMobileCommands = async (message: string): Promise<string | null> => {
     const lowerMessage = message.toLowerCase();
     
-    // Call simulation (free alternative to Twilio)
+    // FREE WebRTC calling
     if (lowerMessage.includes('call ') && /\d{10,}/.test(message)) {
       const phoneMatch = message.match(/(\d{10,})/);
       if (phoneMatch) {
         const phoneNumber = phoneMatch[1];
         const messageText = message.replace(/call\s+\d+\s+(and\s+)?(tell\s+.*|say\s+.*)/i, '$2').trim();
+        const callMessage = messageText || "Hello, this is JARVIS calling.";
         
-        // Simulate calling by speaking the message and providing instructions
-        const callMessage = messageText || "Hello, this is a call from JARVIS AI assistant.";
-        
-        return `I would call ${phoneNumber} and say: "${callMessage}". However, since this is a web application, I cannot make actual phone calls. To enable real calling, you would need to:
-
-1. Set up a Twilio account with credits
-2. Or use your phone's native calling app
-3. Or use services like Google Voice, Skype, or WhatsApp calling
-
-For now, I can help you draft the message and you can make the call manually. Would you like me to help you with that?`;
+        const result = await makePhoneCall(phoneNumber, callMessage);
+        return result;
       }
     }
     
