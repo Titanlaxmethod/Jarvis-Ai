@@ -288,9 +288,9 @@ const Index = () => {
     console.log('handleTextMessage called with:', textInput);
     if (textInput.trim()) {
       console.log('Sending message:', textInput.trim());
+      setCurrentCommand(textInput.trim()); // Update command display
       await handleUserMessage(textInput.trim());
       setTextInput('');
-      setShowTextInput(false);
     } else {
       console.log('Text input is empty, not sending');
     }
@@ -571,7 +571,7 @@ const Index = () => {
       </div>
 
       {/* Bottom controls */}
-      <div className="relative z-10 fixed bottom-8 left-1/2 transform -translate-x-1/2">
+      <div className="relative z-10 fixed bottom-20 left-1/2 transform -translate-x-1/2">
         <div className="flex space-x-4">
           <Button
             onClick={toggleSpeaking}
@@ -580,42 +580,36 @@ const Index = () => {
           >
             {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </Button>
-          <Button
-            onClick={() => setShowTextInput(!showTextInput)}
-            className="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 border-2 border-cyan-400"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 
-      {/* Text Input Interface */}
-      {showTextInput && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-50">
-          <Card className="bg-slate-900/95 backdrop-blur-md border-2 border-cyan-400 p-4 shadow-2xl shadow-cyan-500/20">
-            <div className="flex space-x-2">
-              <Input
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message to JARVIS..."
-                className="bg-slate-800 border-2 border-cyan-500 text-cyan-100 placeholder-cyan-400 flex-1 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-500/50"
-                autoFocus
-              />
+      {/* ChatGPT-style Text Input - Always visible at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent p-4 z-50">
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-slate-800/95 backdrop-blur-md border border-cyan-400/50 shadow-2xl shadow-cyan-500/20">
+            <div className="flex items-end space-x-3 p-4">
+              <div className="flex-1">
+                <Input
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Message JARVIS..."
+                  className="bg-transparent border-0 text-cyan-100 placeholder-cyan-400/70 text-base resize-none focus:ring-0 focus:outline-none min-h-[24px]"
+                  autoFocus={showTextInput}
+                />
+              </div>
               <Button
                 onClick={handleTextMessage}
                 disabled={!textInput.trim()}
-                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 min-w-[44px]"
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg w-10 h-10 p-0 flex items-center justify-center"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <div className="text-xs text-cyan-400 mt-2 opacity-75">
-              Press Enter to send or click the send button
-            </div>
           </Card>
         </div>
-      )}
+      </div>
+
     </div>
   );
 };
